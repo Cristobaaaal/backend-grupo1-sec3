@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
+from typing import Optional
 from uuid import UUID
 
 class TipoPokemon(str, Enum): #Enum para que no sea texto libre. Validación de texto permitido
@@ -31,7 +32,7 @@ class Pokemon:
     tipo_principal: TipoPokemon
     nivel: int
     puntos_vida: int
-    entrenador_id: UUID
+    entrenador_id: Optional[UUID] = None
 
 @dataclass
 class CentroPokemon:
