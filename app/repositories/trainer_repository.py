@@ -17,4 +17,4 @@ class EntrenadorRepository:
         for entrenador in self._db:
             if entrenador.id == entrenador_id: #recorre la lista buscando el entrenador con ese id
                 return entrenador #te lo devuelve si lo encuentra
-        return None #sino te lo pasa vacip 
+        return None #sino te lo pasa vacio

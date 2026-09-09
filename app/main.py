@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from app.routers.trainer_router import router as trainer_router
 from app.routers.pokemon_router import router as pokemon_router
+from app.routers.centro_pokemon_router import router as centro_pokemon_router
 from app.routers.registro_medico_router import router as registro_medico_router
 
 app = FastAPI(
@@ -11,6 +12,7 @@ app = FastAPI(
 
 app.include_router(trainer_router)
 app.include_router(pokemon_router)
+app.include_router(centro_pokemon_router)
 app.include_router(registro_medico_router)
 
 @app.get("/")
