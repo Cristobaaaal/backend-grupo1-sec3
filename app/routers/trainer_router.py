@@ -21,3 +21,11 @@ def obtener_entrenadores():
 @router.get("/{entrenador_id}", response_model=Entrenador, status_code=status.HTTP_200_OK) #responde las peticiones para buscar por el id
 def obtener_entrenador(entrenador_id: UUID):
     return _service.obtener_por_id(entrenador_id) #retorna el entrenador con el id
+
+@router.put("/{entrenador_id}", response_model=Entrenador, status_code=status.HTTP_200_OK) #responde las peticiones para actualizar un entrenador
+def actualizar_entrenador(entrenador_id: UUID, datos: CrearEntrenador):
+    return _service.actualizar_entrenador(entrenador_id, datos) #retorna el entrenador actualizado
+
+@router.delete("/{entrenador_id}", status_code=status.HTTP_204_NO_CONTENT) #responde las peticiones para eliminar un entrenador
+def eliminar_entrenador(entrenador_id: UUID):
+    _service.eliminar_entrenador(entrenador_id) #elimina el entrenador con el id
