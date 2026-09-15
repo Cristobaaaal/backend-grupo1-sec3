@@ -1,6 +1,7 @@
 from app.domain.models import Pokemon
 from uuid import UUID
 from typing import List, Optional
+from app.schemas.schemas import CrearPokemon
 
 class PokemonRepository:
     def __init__(self):
@@ -21,3 +22,22 @@ class PokemonRepository:
 
     def get_by_entrenador_id(self, entrenador_id: UUID) -> List[Pokemon]: #sirve para encontrar los pokemones que pertenecen a cierto entrenador en especifico
         return [p for p in self._db if p.entrenador_id == entrenador_id]
+
+    def delete(self, pokemon_id: UUID) -> bool:
+        pokemon = self.get_by_id(pokemon_id)
+        if pokemon:
+            self._db.remove(pokemon)
+            return True
+        return False
+
+    def update(self, pokemon_id: UUID, datos: CrearPokemon) -> Pokemon:
+        pokemon = self.get_by_id(pokemon_id)
+        if not pokemon:
+            return None
+        pokemon.nombre = datos.nombre
+        pokemon.tipo_principal = datos.tipo_principal
+        pokemon.nivel = datos.nivel
+        pokemon.puntos_vida = datos.puntos_vida
+        pokemon.entrenador_id = datos.entrenador_id
+        return pokemon 
+    
