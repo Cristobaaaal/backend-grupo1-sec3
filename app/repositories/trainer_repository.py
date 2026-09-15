@@ -18,3 +18,20 @@ class EntrenadorRepository:
             if entrenador.id == entrenador_id: #recorre la lista buscando el entrenador con ese id
                 return entrenador #te lo devuelve si lo encuentra
         return None #sino te lo pasa vacio
+
+    def delete(self, entrenador_id: UUID) -> bool:
+        trainer = self.get_by_id(entrenador_id) #busca el entrenador con ese id
+        if not trainer: #si no lo encuentra
+            return False 
+        self._db.remove(trainer) #si encuentra al dt lo elimina
+        return True #te devuelve true si lo pudo eliminar
+
+    def update(self, entrenador_id: UUID, updated_entrenador: Entrenador) -> Optional[Entrenador]:
+        trainer = self.get_by_id(entrenador_id) #busca el entrenador con ese id
+        if not trainer:
+            return None 
+        trainer.nombre = updated_entrenador.nombre                                                                #actualiza la informacion
+        trainer.region_origen = updated_entrenador.region_origen                                                         #||
+        trainer.medallas_obtenidas = updated_entrenador.medallas_obtenidas                                               #||
+        trainer.nivel_experiencia = updated_entrenador.nivel_experiencia                                                 #||
+        return trainer #te devuelve todo del entrenador actualizado                                                      #||
