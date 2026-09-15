@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, HTTPException
 from typing import List
 from uuid import UUID
 from app.schemas.schemas import CrearPokemon
@@ -25,3 +25,23 @@ def obtener_pokemon(pokemon_id: UUID):
 @router.get("/entrenador/{entrenador_id}", response_model=List[Pokemon], status_code=status.HTTP_200_OK) #responde a las peticiones para buscar pokemones por el id del entrenador
 def obtener_pokemones_por_entrenador(entrenador_id: UUID):
     return _service.obtener_por_entrenador(entrenador_id)
+
+@router.delete("/{pokemon_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_pokemon(pokemon_id: UUID):
+    try:
+        return _service.eliminar_pokemon(pokemon_id)
+    except ValueError as e:
+        raise HTTPException(
+             status_code=status.HTTP_404_NOT_FOUND,
+             detail=str(e)
+        )
+
+@router.put("/{pokemon_id}", response_model=Pokemon, status_code=status.HTTP_200_OK)
+def actualizar_pokemon(pokemon_id: UUID, datos: CrearPokemon):
+    try:
+        return _service.actualizar_pokemon(pokemon_id, datos)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )

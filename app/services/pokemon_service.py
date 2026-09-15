@@ -30,3 +30,15 @@ class PokemonService:
 
     def obtener_por_entrenador(self, entrenador_id: UUID) -> List[Pokemon]:
         return self.repository.get_by_entrenador_id(entrenador_id)
+
+    def eliminar_pokemon(self, pokemon_id: UUID) -> None:
+        eliminado = self.repository.delete(pokemon_id)
+        if not eliminado:
+            raise ValueError(f"pokemon with id {pokemon_id} not found.")
+
+    def actualizar_pokemon(self, pokemon_id: UUID, datos: CrearPokemon) -> Pokemon:
+        pokemon_actualizado = self.repository.update(pokemon_id, datos)
+        if not pokemon_actualizado:
+            raise ValueError(f"pokemon with id {pokemon_id} not found.")
+        return pokemon_actualizado
+    
