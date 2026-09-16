@@ -1,8 +1,17 @@
 from uuid import UUID
 from datetime import date
-from typing import Optional
+from typing import Optional, List, Generic, TypeVar
 from pydantic import BaseModel, Field
 from app.domain.models import TipoPokemon, EstadoAtencion
+
+T = TypeVar("T")
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items: List[T]
+    total: int
+    pagina: int
+    limite: int
+    total_paginas: int
 
 class CrearEntrenador(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=50) 
