@@ -16,3 +16,9 @@ class RegistroMedicoService:
 
     def listar_registros(self) -> List[RegistroMedico]:
         return self.repository.obtener_todos()
+    
+    def actualizar_registro(self, registro_id: UUID, datos: CrearRegistroMedico) -> Optional[RegistroMedico]:
+        return self.repository.actualizar(registro_id, datos)
+
+    def eliminar_registro(self, registro_id: UUID) -> bool:
+        return self.repository.eliminar(registro_id)

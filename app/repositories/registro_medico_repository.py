@@ -26,3 +26,25 @@ class RegistroMedicoRepository:
 
     def obtener_todos(self) -> List[RegistroMedico]:
         return list(self._registros.values())
+    
+    def actualizar(self, registro_id: UUID, datos: CrearRegistroMedico) -> Optional[RegistroMedico]:
+        if registro_id not in self._registros:
+            return None
+        # Mantiene el mismo ID pero actualiza los campos
+        registro_actualizado = RegistroMedico(
+            id=registro_id,
+            pokemon_id=datos.pokemon_id,
+            centro_id=datos.centro_id,
+            diagnostico=datos.diagnostico,
+            fecha_ingreso=datos.fecha_ingreso,
+            estado=datos.estado,
+            costo=datos.costo
+        )
+        self._registros[registro_id] = registro_actualizado
+        return registro_actualizado
+
+    def eliminar(self, registro_id: UUID) -> bool:
+        if registro_id in self._registros:
+            del self._registros[registro_id]
+            return True
+        return False
