@@ -1,0 +1,225 @@
+### Pokemon Medical Center API - Pruebas manuales
+### Requiere la extensión "REST Client" en VS Code para ejecutar cada bloque con un click.
+### Si no tienes la extensión, este archivo igual sirve como documentación de las requests.
+
+@baseUrl = http://127.0.0.1:8000
+
+###############################################
+# ENTRENADORES
+###############################################
+
+### Crear entrenador (caso exitoso)
+# @name crearEntrenador
+POST {{baseUrl}}/entrenadores/
+Content-Type: application/json
+
+{
+  "nombre": "Ash",
+  "nivel_experiencia": 10,
+  "region_origen": "Kanto",
+  "medallas_obtenidas": 3
+}
+
+### Listar entrenadores
+GET {{baseUrl}}/entrenadores/
+
+### Obtener entrenador por id (usa el id que devolvió "crearEntrenador")
+GET {{baseUrl}}/entrenadores/{{crearEntrenador.response.body.$.id}}
+
+### Actualizar entrenador
+PUT {{baseUrl}}/entrenadores/{{crearEntrenador.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "nombre": "Ash Ketchum",
+  "nivel_experiencia": 15,
+  "region_origen": "Kanto",
+  "medallas_obtenidas": 4
+}
+
+### Caso de error: obtener entrenador con id inexistente (debe dar 404)
+GET {{baseUrl}}/entrenadores/00000000-0000-0000-0000-000000000000
+
+
+###############################################
+# POKEMONES
+###############################################
+
+### Crear pokemon con entrenador válido (caso exitoso)
+# @name crearPokemon
+POST {{baseUrl}}/pokemones/
+Content-Type: application/json
+
+{
+  "nombre": "Pikachu",
+  "tipo_principal": "ELECTRICO",
+  "nivel": 10,
+  "puntos_vida": 40,
+  "entrenador_id": "{{crearEntrenador.response.body.$.id}}"
+}
+
+### Caso de error: crear pokemon con entrenador_id inventado (debe dar 404, existencia relacionada)
+POST {{baseUrl}}/pokemones/
+Content-Type: application/json
+
+{
+  "nombre": "Charmander",
+  "tipo_principal": "FUEGO",
+  "nivel": 5,
+  "puntos_vida": 39,
+  "entrenador_id": "00000000-0000-0000-0000-000000000000"
+}
+
+### Caso de error: crear pokemon con datos inválidos (debe dar 422)
+POST {{baseUrl}}/pokemones/
+Content-Type: application/json
+
+{
+  "nombre": "",
+  "tipo_principal": "FUEGO",
+  "nivel": 999,
+  "puntos_vida": 40
+}
+
+### Listar pokemones con filtro + orden + paginación
+GET {{baseUrl}}/pokemones/?tipo=ELECTRICO&ordenar_por=nivel&direccion=desc&pagina=1&limite=20
+
+### Obtener pokemon por id
+GET {{baseUrl}}/pokemones/{{crearPokemon.response.body.$.id}}
+
+### Actualizar pokemon
+PUT {{baseUrl}}/pokemones/{{crearPokemon.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "nombre": "Pikachu",
+  "tipo_principal": "ELECTRICO",
+  "nivel": 12,
+  "puntos_vida": 45,
+  "entrenador_id": "{{crearEntrenador.response.body.$.id}}"
+}
+
+### Eliminar pokemon
+DELETE {{baseUrl}}/pokemones/{{crearPokemon.response.body.$.id}}
+
+
+###############################################
+# CENTROS POKEMON
+###############################################
+
+### Crear centro pokemon en servicio (caso exitoso)
+# @name crearCentro
+POST {{baseUrl}}/centros-pokemon/
+Content-Type: application/json
+
+{
+  "nombre": "Centro Norte",
+  "ciudad": "Temuco",
+  "capacidad_maxima": 10,
+  "en_servicio": true
+}
+
+### Crear centro pokemon FUERA de servicio (para probar la regla de negocio más abajo)
+# @name crearCentroFueraServicio
+POST {{baseUrl}}/centros-pokemon/
+Content-Type: application/json
+
+{
+  "nombre": "Centro Cerrado",
+  "ciudad": "Temuco",
+  "capacidad_maxima": 5,
+  "en_servicio": false
+}
+
+### Listar centros
+GET {{baseUrl}}/centros-pokemon/
+
+### Buscar centros por ciudad
+GET {{baseUrl}}/centros-pokemon/ciudad/Temuco
+
+### Obtener centro por id
+GET {{baseUrl}}/centros-pokemon/{{crearCentro.response.body.$.id}}
+
+### Actualizar centro
+PUT {{baseUrl}}/centros-pokemon/{{crearCentro.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "nombre": "Centro Norte",
+  "ciudad": "Temuco",
+  "capacidad_maxima": 15,
+  "en_servicio": true
+}
+
+
+###############################################
+# REGISTROS MEDICOS
+###############################################
+
+### Crear registro médico válido (caso exitoso)
+# @name crearRegistro
+POST {{baseUrl}}/registros-medicos/
+Content-Type: application/json
+
+{
+  "pokemon_id": "{{crearPokemon.response.body.$.id}}",
+  "centro_id": "{{crearCentro.response.body.$.id}}",
+  "diagnostico": "Resfrío común",
+  "fecha_ingreso": "2026-01-01",
+  "estado": "EN_TRATAMIENTO",
+  "costo": 5000
+}
+
+### Caso de error: registrar en un centro fuera de servicio (regla de negocio, debe dar 400)
+POST {{baseUrl}}/registros-medicos/
+Content-Type: application/json
+
+{
+  "pokemon_id": "{{crearPokemon.response.body.$.id}}",
+  "centro_id": "{{crearCentroFueraServicio.response.body.$.id}}",
+  "diagnostico": "Resfrío común",
+  "fecha_ingreso": "2026-01-01",
+  "estado": "EN_TRATAMIENTO",
+  "costo": 5000
+}
+
+### Caso de error: fecha de ingreso futura (regla de negocio, debe dar 400)
+POST {{baseUrl}}/registros-medicos/
+Content-Type: application/json
+
+{
+  "pokemon_id": "{{crearPokemon.response.body.$.id}}",
+  "centro_id": "{{crearCentro.response.body.$.id}}",
+  "diagnostico": "Resfrío común",
+  "fecha_ingreso": "2099-01-01",
+  "estado": "EN_TRATAMIENTO",
+  "costo": 5000
+}
+
+### Listar registros médicos
+GET {{baseUrl}}/registros-medicos/
+
+### Obtener registro por id
+GET {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
+
+### Actualizar registro médico
+PUT {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
+Content-Type: application/json
+
+{
+  "pokemon_id": "{{crearPokemon.response.body.$.id}}",
+  "centro_id": "{{crearCentro.response.body.$.id}}",
+  "diagnostico": "Resfrío curado",
+  "fecha_ingreso": "2026-01-01",
+  "estado": "DADO_DE_ALTA",
+  "costo": 5000
+}
+
+### Caso de error: intentar eliminar un centro con paciente EN_TRATAMIENTO (regla de negocio, debe dar 400)
+DELETE {{baseUrl}}/centros-pokemon/{{crearCentro.response.body.$.id}}
+
+### Eliminar registro médico
+DELETE {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
+
+### Eliminar entrenador
+DELETE {{baseUrl}}/entrenadores/{{crearEntrenador.response.body.$.id}}
