@@ -13,7 +13,7 @@ class CentroPokemonService:
 
     def crear_centro(self, datos: CrearCentroPokemon) -> CentroPokemon:
         if datos.capacidad_maxima <= 0:
-            raise ValueError("La capacidad máxima del centro debe ser mayor a 0.")
+            raise BusinessRuleError("La capacidad máxima del centro debe ser mayor a 0.")
 
         nuevo_centro = CentroPokemon(
             id=uuid4(),

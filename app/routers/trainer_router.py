@@ -4,7 +4,6 @@ from uuid import UUID
 from app.schemas.schemas import CrearEntrenador
 from app.domain.models import Entrenador
 from app.services.trainer_service import EntrenadorService
-from app.repositories.trainer_repository import EntrenadorRepository
 from app.core.dependencies import trainer_repo
 
 router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"]) #todas las urls q tengan "entrenadores" van a tener la etiqueta de "Entrenadores"
