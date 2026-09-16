@@ -7,7 +7,7 @@ API REST desarrollada con **FastAPI** para la gestión de Entrenadores, Pokémon
 ## Arquitectura del Proyecto
 
 El código está estructurado en módulos para mantener la separación de responsabilidades:
-
+```
 backend-grupo1-sec3/
 ├── app/
 │   ├── core/           # Excepciones globales (APIException) y handlers
