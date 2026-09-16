@@ -5,10 +5,10 @@ from app.schemas.schemas import CrearEntrenador
 from app.domain.models import Entrenador
 from app.services.trainer_service import EntrenadorService
 from app.repositories.trainer_repository import EntrenadorRepository
+from app.core.dependencies import trainer_repo
 
 router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"]) #todas las urls q tengan "entrenadores" van a tener la etiqueta de "Entrenadores"
-_repo = EntrenadorRepository() #se instancia la clase EntrenadorRepository
-_service = EntrenadorService(_repo) #se instancia la clase EntrenadorService
+_service = EntrenadorService(trainer_repo) #se instancia la clase EntrenadorService
 
 @router.post("/", response_model=Entrenador, status_code=status.HTTP_201_CREATED) #responde las peticiones para crear un entrenador
 def crear_entrenador(datos: CrearEntrenador):

@@ -1,13 +1,15 @@
 from typing import List
 from uuid import UUID, uuid4
-from app.domain.models import CentroPokemon
+from app.domain.models import CentroPokemon, EstadoAtencion
 from app.repositories.centro_pokemon_repository import CentroPokemonRepository
 from app.schemas.schemas import CrearCentroPokemon
-
+from app.repositories.registro_medico_repository import RegistroMedicoRepository
+from app.core.exceptions import NotFoundException, BusinessRuleError
 
 class CentroPokemonService:
-    def __init__(self, centro_repo: CentroPokemonRepository):
+    def __init__(self, centro_repo: CentroPokemonRepository, registro_repo: RegistroMedicoRepository):
         self.centro_repo = centro_repo
+        self.registro_repo = registro_repo
 
     def crear_centro(self, datos: CrearCentroPokemon) -> CentroPokemon:
         if datos.capacidad_maxima <= 0:
@@ -29,19 +31,25 @@ class CentroPokemonService:
     def obtener_por_id(self, centro_id: UUID) -> CentroPokemon:
         centro = self.centro_repo.get_by_id(centro_id)
         if not centro:
-            raise ValueError(f"Centro Pokémon con id {centro_id} no encontrado.")
+            raise NotFoundException("centro pokémon", centro_id)
         return centro
 
     def obtener_por_ciudad(self, ciudad: str) -> List[CentroPokemon]:
         return self.centro_repo.get_by_ciudad(ciudad)
 
     def eliminar_centro_pokemon(self, centro_id: UUID) -> None:
-        eliminado = self.centro_repo.delete(centro_id)
-        if not eliminado:
-            raise ValueError(f"Centro Pokemon con id {centro_id} no encontrado")
+        self.obtener_por_id(centro_id)
+        tiene_pacientes_activos = any(
+            r.centro_id == centro_id and r.estado == EstadoAtencion.EN_TRATAMIENTO
+            for r in self.registro_repo.obtener_todos()
+        )
+        if tiene_pacientes_activos:
+            raise BusinessRuleError(
+                f"No se puede eliminar el centro {centro_id}: tiene pokemones en tratamiento.")
+        self.centro_repo.delete(centro_id)
     
     def actualizar_centro_pokemon(self, centro_id: UUID, datos: CrearCentroPokemon) -> CentroPokemon:
         actualizado = self.centro_repo.actualizar(centro_id, datos)
         if not actualizado:
-            raise ValueError(f"Centro Pokemon con id {centro_id} no encontrado")
-        return actualizado 
+            raise NotFoundException("centro pokémon", centro_id)
+        return actualizado
