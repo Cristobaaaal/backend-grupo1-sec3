@@ -1,4 +1,4 @@
-from app.domain.models import Pokemon
+from app.domain.models import Pokemon, TipoPokemon
 from app.repositories.pokemon_repository import PokemonRepository
 from app.schemas.schemas import CrearPokemon
 from typing import List
@@ -28,8 +28,39 @@ class PokemonService:
             raise ValueError(f"pokemon with id {pokemon_id} not found.") #si no esta le manda un error
         return pokemon
 
+    def obtener_por_tipo(self, tipo: TipoPokemon) -> List[Pokemon]:
+        return self.repository.get_by_tipo(tipo)
+
     def obtener_por_entrenador(self, entrenador_id: UUID) -> List[Pokemon]:
         return self.repository.get_by_entrenador_id(entrenador_id)
+
+    def obtener_sin_entrenador(self) -> List[Pokemon]:
+        return self.repository.get_sin_entrenador()
+
+    def asignar_entrenador(self, pokemon_id: UUID, entrenador_id: UUID) -> Pokemon:
+        pokemon = self.obtener_por_id(pokemon_id)
+        pokemon.entrenador_id = entrenador_id
+        return pokemon
+
+    def transferir_entrenador(self, pokemon_id: UUID, nuevo_entrenador_id: UUID) -> Pokemon:
+        pokemon = self.obtener_por_id(pokemon_id)
+        pokemon.entrenador_id = nuevo_entrenador_id
+        return pokemon
+
+    def liberar_pokemon(self, pokemon_id: UUID) -> Pokemon:
+        pokemon = self.obtener_por_id(pokemon_id)
+        pokemon.entrenador_id = None
+        return pokemon
+
+    def actualizar_stats(self, pokemon_id: UUID, nivel: int, puntos_vida: int) -> Pokemon:
+        if not (1 <= nivel <= 100):
+            raise ValueError("El nivel debe estar entre 1 y 100.")
+        if not (1 <= puntos_vida <= 100):
+            raise ValueError("Los puntos de vida deben estar entre 1 y 100.")
+        pokemon = self.obtener_por_id(pokemon_id)
+        pokemon.nivel = nivel
+        pokemon.puntos_vida = puntos_vida
+        return pokemon
 
     def eliminar_pokemon(self, pokemon_id: UUID) -> None:
         eliminado = self.repository.delete(pokemon_id)
@@ -41,4 +72,3 @@ class PokemonService:
         if not pokemon_actualizado:
             raise ValueError(f"pokemon with id {pokemon_id} not found.")
         return pokemon_actualizado
-    

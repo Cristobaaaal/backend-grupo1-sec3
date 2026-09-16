@@ -1,4 +1,4 @@
-from app.domain.models import Pokemon
+from app.domain.models import Pokemon, TipoPokemon
 from uuid import UUID
 from typing import List, Optional
 from app.schemas.schemas import CrearPokemon
@@ -20,8 +20,14 @@ class PokemonRepository:
                 return pokemon #te lo devuelve si lo encuentra
         return None
 
+    def get_by_tipo(self, tipo: TipoPokemon) -> List[Pokemon]:
+        return [p for p in self._db if p.tipo_principal == tipo]
+
     def get_by_entrenador_id(self, entrenador_id: UUID) -> List[Pokemon]: #sirve para encontrar los pokemones que pertenecen a cierto entrenador en especifico
         return [p for p in self._db if p.entrenador_id == entrenador_id]
+
+    def get_sin_entrenador(self) -> List[Pokemon]:
+        return [p for p in self._db if p.entrenador_id is None]
 
     def delete(self, pokemon_id: UUID) -> bool:
         pokemon = self.get_by_id(pokemon_id)
@@ -39,5 +45,4 @@ class PokemonRepository:
         pokemon.nivel = datos.nivel
         pokemon.puntos_vida = datos.puntos_vida
         pokemon.entrenador_id = datos.entrenador_id
-        return pokemon 
-    
+        return pokemon
