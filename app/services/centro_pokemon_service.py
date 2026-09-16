@@ -34,3 +34,14 @@ class CentroPokemonService:
 
     def obtener_por_ciudad(self, ciudad: str) -> List[CentroPokemon]:
         return self.centro_repo.get_by_ciudad(ciudad)
+
+    def eliminar_centro_pokemon(self, centro_id: UUID) -> None:
+        eliminado = self.centro_repo.delete(centro_id)
+        if not eliminado:
+            raise ValueError(f"Centro Pokemon con id {centro_id} no encontrado")
+    
+    def actualizar_centro_pokemon(self, centro_id: UUID, datos: CrearCentroPokemon) -> CentroPokemon:
+        actualizado = self.centro_repo.actualizar(centro_id, datos)
+        if not actualizado:
+            raise ValueError(f"Centro Pokemon con id {centro_id} no encontrado")
+        return actualizado 

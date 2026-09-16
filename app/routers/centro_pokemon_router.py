@@ -42,3 +42,23 @@ def obtener_centro_por_id(centro_id: UUID):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
+
+@router.put("/{centro_id}", response_model=CentroPokemon, status_code=status.HTTP_200_OK)
+def actualizar_centro_pokemon(centro_id: UUID, datos: CrearCentroPokemon):
+    try: 
+        return _service.actualizar_centro_pokemon(centro_id, datos)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+
+@router.delete("/{centro_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_centro_pokemon(centro_id: UUID):
+    try: 
+        _service.eliminar_centro_pokemon(centro_id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )

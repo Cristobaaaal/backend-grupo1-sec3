@@ -1,6 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 from app.domain.models import CentroPokemon
+from app.schemas.schemas import CrearCentroPokemon
 
 
 class CentroPokemonRepository:
@@ -26,3 +27,21 @@ class CentroPokemonRepository:
             if c.ciudad.lower() == ciudad.lower():
                 centros_encontrados.append(c)
         return centros_encontrados
+
+    def delete(self, centro_pokemon_id: UUID) -> bool:
+        centro= self.get_by_id(centro_pokemon_id)
+        if centro:
+            self._db.remove(centro)
+            return True
+        return False
+        
+    def actualizar(self, centro_pokemon_id: UUID, datos: CrearCentroPokemon) -> Optional[CentroPokemon]:
+        centro = self.get_by_id(centro_pokemon_id)
+        if not centro:
+            return None
+        centro.nombre = datos.nombre
+        centro.ciudad = datos.ciudad
+        centro.capacidad_maxima = datos.capacidad_maxima
+        centro.en_servicio = datos.en_servicio
+        return centro
+
