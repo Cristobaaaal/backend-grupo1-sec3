@@ -8,7 +8,7 @@ from app.core.dependencies import centro_pokemon_repo, registro_medico_repo
 
 router = APIRouter(prefix="/centros-pokemon", tags=["Centros Pokemon"])
 
-_service = CentroPokemonService(_repo)
+_service = CentroPokemonService(centro_pokemon_repo, registro_medico_repo)
 
 
 @router.post("/", response_model=CentroPokemon, status_code=status.HTTP_201_CREATED)
