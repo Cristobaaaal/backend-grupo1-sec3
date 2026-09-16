@@ -1,6 +1,6 @@
-### Pokemon Medical Center API - Pruebas manuales
-### Requiere la extensión "REST Client" en VS Code para ejecutar cada bloque con un click.
-### Si no tienes la extensión, este archivo igual sirve como documentación de las requests.
+# Pokemon Medical Center API - Pruebas manuales
+# Requiere la extensión "REST Client" en VS Code para ejecutar cada bloque con un click.
+# Si no tienes la extensión, este archivo igual sirve como documentación de las requests.
 
 @baseUrl = http://127.0.0.1:8000
 
