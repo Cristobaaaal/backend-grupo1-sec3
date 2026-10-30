@@ -1,60 +1,57 @@
-from sqlalchemy import ForeignKey, String, Date # Tipo de fecha de sqlalchemy
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 from app.infrastructure.database import Base
-from datetime import date # Tipo de fecha de python
 
 
 
 class EntrenadorORM(Base):
     __tablename__ = "entrenadores"
-    # Mismos atributos que la tabla de /domain/models.py
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(100))
-    nivel_experiencia: Mapped[int] = mapped_column()
-    region_origen: Mapped[str] = mapped_column(String(100))
-    medallas_obtenidas: Mapped[int] = mapped_column()
 
-    pokemones: Mapped[list["PokemonORM"]] = relationship( # nombre(pokemones)
-        back_populates="entrenador", # conecta con atributo entrenador de PokemonORM
+    id = Column(String(36), primary_key=True)
+    nombre = Column(String(100), nullable=False)
+    nivel_experiencia = Column(Integer, nullable=False)
+    region_origen = Column(String(100), nullable=False)
+    medallas_obtenidas = Column(Integer, nullable=False)
+
+    pokemones = relationship("PokemonORM",
+        back_populates="entrenador",
         passive_deletes="all",
     )
 
 class PokemonORM(Base):
     __tablename__ = "pokemones"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(100))
-    tipo_principal: Mapped[str] = mapped_column(String(20), index=True) # Guarda valores como "FUEGO, índice(index)
-    nivel: Mapped[int] = mapped_column()
-    puntos_vida: Mapped[int] = mapped_column()
+    id = Column(String(36), primary_key=True)
+    nombre = Column(String(100), nullable=False)
+    tipo_principal = Column(String(20), nullable=False, index=True)
+    nivel = Column(Integer, nullable=False)
+    puntos_vida = Column(Integer, nullable=False)
 
-    entrenador_id: Mapped[str | None] = mapped_column( # Permitir pokemón sin entrenador (opcional)
+    entrenador_id = Column(
         String(36),
         ForeignKey("entrenadores.id"),
+        nullable=True,
         index=True
     )
 
-    entrenador: Mapped["EntrenadorORM | None"] = relationship( # Nombre(entrenador) | None, 1 o ninguno
+    entrenador = relationship("EntrenadorORM",
         back_populates="pokemones"
     )
 
-    registros_medicos: Mapped[list["RegistroMedicoORM"]] = relationship (
+    registros_medicos = relationship("RegistroMedicoORM",
         back_populates="pokemon",
         passive_deletes="all",
-
-
-
     )
 class CentroPokemonORM(Base):
     __tablename__ = "centros_pokemon"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    nombre: Mapped[str] = mapped_column(String(100))
-    ciudad: Mapped[str] = mapped_column(String(100), index=True)
-    capacidad_maxima: Mapped[int] = mapped_column()
-    en_servicio: Mapped[bool] = mapped_column()
+    id = Column(String(36), primary_key=True)
+    nombre = Column(String(100), nullable=False)
+    ciudad = Column(String(100), nullable=False, index=True)
+    capacidad_maxima = Column(Integer, nullable=False)
+    en_servicio = Column(Boolean, nullable=False)
 
-    registros_medicos: Mapped[list["RegistroMedicoORM"]] = relationship(
+    registros_medicos = relationship("RegistroMedicoORM",
         back_populates = "centro",
         passive_deletes="all",
     )
@@ -62,26 +59,28 @@ class CentroPokemonORM(Base):
 class RegistroMedicoORM(Base):
     __tablename__ = "registros_medicos"
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    pokemon_id: Mapped[str] = mapped_column(
+    id = Column(String(36), primary_key=True)
+    pokemon_id = Column(
         String(36),
         ForeignKey("pokemones.id"),
+        nullable=False,
         index=True
     )
 
-    centro_id: Mapped[str] = mapped_column(
+    centro_id = Column(
         String(36),
         ForeignKey("centros_pokemon.id"),
+        nullable=False,
         index=True
     )
-    diagnostico: Mapped[str] = mapped_column(String(1000))
-    fecha_ingreso: Mapped[date] = mapped_column(Date)
-    estado: Mapped[str] = mapped_column(String(20), index=True)
-    costo: Mapped[int] = mapped_column()
+    diagnostico = Column(String(1000), nullable=False)
+    fecha_ingreso = Column(Date, nullable=False)
+    estado = Column(String(20), nullable=False, index=True)
+    costo = Column(Integer, nullable=False)
 
-    pokemon: Mapped["PokemonORM"] = relationship(
+    pokemon = relationship("PokemonORM",
         back_populates = "registros_medicos"
     )
-    centro: Mapped["CentroPokemonORM"] = relationship(
+    centro = relationship("CentroPokemonORM",
         back_populates ="registros_medicos"
     )
