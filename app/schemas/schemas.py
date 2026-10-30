@@ -37,6 +37,17 @@ class CrearPokemon(BaseModel):
     entrenador_id: Optional[UUID] = None 
 
 class CrearCentroPokemon(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{
+                "nombre": "Centro Norte",
+                "ciudad": "Temuco",
+                "capacidad_maxima": 10,
+                "en_servicio": True
+            }]
+        }
+    )
+
     nombre: str = Field(..., min_length=2, max_length=50)
     ciudad: str = Field(..., min_length=2, max_length=50)
     capacidad_maxima: int = Field(..., ge=1, le=100)
@@ -81,8 +92,18 @@ class PokemonResponse(BaseModel):
     entrenador_id: Optional[UUID]
 
 class CentroPokemonResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "examples": [{
+                "id": "00000000-0000-0000-0000-000000000002",
+                "nombre": "Centro Norte",
+                "ciudad": "Temuco",
+                "capacidad_maxima": 10,
+                "en_servicio": True
+            }]
+        }
+    )
 
     id: UUID
     nombre: str
