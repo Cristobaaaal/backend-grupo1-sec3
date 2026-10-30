@@ -14,6 +14,16 @@ class PaginatedResponse(BaseModel, Generic[T]):
     total_paginas: int
 
 class CrearEntrenador(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{
+                "nombre": "faker",
+                "nivel_experiencia": 67,
+                "region_origen": "corea",
+                "medallas_obtenidas": 3
+            }]
+        }
+    )
     nombre: str = Field(..., min_length=2, max_length=50) 
     nivel_experiencia: int = Field(..., ge=1, le=100) 
     region_origen: str = Field(..., min_length=2, max_length=50)
@@ -41,7 +51,18 @@ class CrearRegistroMedico(BaseModel):
     costo: int = Field(..., ge=0) # El costo debe ser mayor o igual a 0
 
 class EntrenadorResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "examples": [{
+                "id": "00000000-0000-0000-0000-000000000001",
+                "nombre": "faker",
+                "nivel_experiencia": 67,
+                "region_origen": "corea",
+                "medallas_obtenidas": 3
+            }]
+        }
+    )
 
     id: UUID
     nombre: str
@@ -79,3 +100,11 @@ class RegistroMedicoResponse(BaseModel):
     fecha_ingreso: date
     estado: EstadoAtencion
     costo: int
+
+class ErrorInfo(BaseModel):
+    code: str
+    message: str
+    details: List[dict]
+
+class ErrorResponse(BaseModel):
+    error: ErrorInfo
