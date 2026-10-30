@@ -1,7 +1,7 @@
 from uuid import UUID
 from datetime import date
 from typing import Optional, List, Generic, TypeVar
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from app.domain.models import TipoPokemon, EstadoAtencion
 
 T = TypeVar("T")
@@ -39,3 +39,43 @@ class CrearRegistroMedico(BaseModel):
     fecha_ingreso: date
     estado: EstadoAtencion
     costo: int = Field(..., ge=0) # El costo debe ser mayor o igual a 0
+
+class EntrenadorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    nombre: str
+    nivel_experiencia: int
+    region_origen: str
+    medallas_obtenidas: int
+
+class PokemonResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    nombre: str
+    tipo_principal: TipoPokemon
+    nivel: int
+    puntos_vida: int
+    entrenador_id: Optional[UUID]
+
+class CentroPokemonResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+    id: UUID
+    nombre: str
+    ciudad: str
+    capacidad_maxima: int
+    en_servicio: bool
+
+class RegistroMedicoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    pokemon_id: UUID
+    centro_id: UUID
+    diagnostico: str
+    fecha_ingreso: date
+    estado: EstadoAtencion
+    costo: int
