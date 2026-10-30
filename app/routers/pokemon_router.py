@@ -4,10 +4,10 @@ from uuid import UUID
 from app.schemas.schemas import CrearPokemon, PaginatedResponse
 from app.domain.models import Pokemon, TipoPokemon
 from app.services.pokemon_service import PokemonService 
-from app.core.dependencies import pokemon_repo, trainer_repo
+from app.core.dependencies import pokemon_repo, trainer_repo, registro_medico_repo
 
 router = APIRouter(prefix="/pokemones", tags=["Pokemones"]) #todas las urls q tengan "pokemones" van a tener la etiqueta de "Pokemones"
-_service = PokemonService(pokemon_repo, trainer_repo) #se instancia la clase PokemonService con los repos compartidos
+_service = PokemonService(pokemon_repo, trainer_repo, registro_medico_repo) #se instancia la clase PokemonService con los repos compartidos
 
 @router.post("/", response_model=Pokemon, status_code=status.HTTP_201_CREATED) #responde las peticiones para crear un pokemon
 def crear_pokemon(datos: CrearPokemon):
