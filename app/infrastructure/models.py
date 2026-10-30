@@ -38,6 +38,13 @@ class PokemonORM(Base):
         back_populates="pokemones"
     )
 
+    registros_medicos: Mapped[list["RegistroMedicoORM"]] = relationship (
+        back_populates="pokemon",
+        passive_deletes="all",
+
+
+
+    )
 class CentroPokemonORM(Base):
     __tablename__ = "centros_pokemon"
 
@@ -46,6 +53,11 @@ class CentroPokemonORM(Base):
     ciudad: Mapped[str] = mapped_column(String(100), index=True)
     capacidad_maxima: Mapped[int] = mapped_column()
     en_servicio: Mapped[bool] = mapped_column()
+
+    registros_medicos: Mapped[list["RegistroMedicoORM"]] = relationship(
+        back_populates = "centro",
+        passive_deletes="all",
+    )
 
 class RegistroMedicoORM(Base):
     __tablename__ = "registros_medicos"
@@ -66,3 +78,10 @@ class RegistroMedicoORM(Base):
     fecha_ingreso: Mapped[date] = mapped_column(Date)
     estado: Mapped[str] = mapped_column(String(20), index=True)
     costo: Mapped[int] = mapped_column()
+
+    pokemon: Mapped["PokemonORM"] = relationship(
+        back_populates = "registros_medicos"
+    )
+    centro: Mapped["CentroPokemonORM"] = relationship(
+        back_populates ="registros_medicos"
+    )

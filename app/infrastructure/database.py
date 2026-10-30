@@ -1,6 +1,5 @@
 import os
-from posix import close
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL = os.getenv(
@@ -34,9 +33,8 @@ class Base(DeclarativeBase):  # Base de modelos ORM (tablas)
     pass
 
 def get_db():
-    db = SessionLocal( # Crea la sesión
-        try:
-            yield db   # "Entregar" la sesión
-        finally:
-            db.close() # Después de usarla se cierra
-    )
+    db = SessionLocal() # Crea la sesión
+    try:
+        yield db   # "Entregar" la sesión
+    finally:
+        db.close() # Después de usarla se cierra
