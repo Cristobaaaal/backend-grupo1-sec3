@@ -99,9 +99,6 @@ Content-Type: application/json
   "entrenador_id": "{{crearEntrenador.response.body.$.id}}"
 }
 
-### Eliminar pokemon
-DELETE {{baseUrl}}/pokemones/{{crearPokemon.response.body.$.id}}
-
 
 ###############################################
 # CENTROS POKEMON
@@ -202,6 +199,10 @@ GET {{baseUrl}}/registros-medicos/
 ### Obtener registro por id
 GET {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
 
+### Caso de error: intentar eliminar un centro con paciente EN_TRATAMIENTO (regla de negocio, debe dar 400)
+DELETE {{baseUrl}}/centros-pokemon/{{crearCentro.response.body.$.id}}
+
+
 ### Actualizar registro médico
 PUT {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
 Content-Type: application/json
@@ -215,11 +216,12 @@ Content-Type: application/json
   "costo": 5000
 }
 
-### Caso de error: intentar eliminar un centro con paciente EN_TRATAMIENTO (regla de negocio, debe dar 400)
-DELETE {{baseUrl}}/centros-pokemon/{{crearCentro.response.body.$.id}}
-
 ### Eliminar registro médico
 DELETE {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
 
+### Eliminar pokemon
+DELETE {{baseUrl}}/pokemones/{{crearPokemon.response.body.$.id}}
+
 ### Eliminar entrenador
 DELETE {{baseUrl}}/entrenadores/{{crearEntrenador.response.body.$.id}}
+
