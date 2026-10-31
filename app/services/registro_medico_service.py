@@ -46,6 +46,7 @@ class RegistroMedicoService:
         return self.repository.obtener_todos()
     
     def actualizar_registro(self, registro_id: UUID, datos: CrearRegistroMedico) -> RegistroMedico:
+        self.obtener_por_id(registro_id)
         self._validar_datos(datos)
         registro_actualizado = self.repository.actualizar(registro_id, datos)
         if not registro_actualizado:
