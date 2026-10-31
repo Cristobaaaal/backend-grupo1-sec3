@@ -1,14 +1,16 @@
 from app.domain.models import Entrenador
 from app.repositories.trainer_repository import EntrenadorRepository
+from app.repositories.pokemon_repository import PokemonRepository
 from app.schemas.schemas import CrearEntrenador
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import NotFoundException, ConflictError
 from typing import List
 from uuid import UUID, uuid4
 
 class EntrenadorService:
-    def __init__(self, repository: EntrenadorRepository):
+    def __init__(self, repository: EntrenadorRepository, pokemon_repository: PokemonRepository):
         self.repository = repository
- 
+        self.pokemon_repository = pokemon_repository
+
     def crear_entrenador(self, datos: CrearEntrenador) -> Entrenador: # es el tipo de dato q se espera
         entrenador = Entrenador(
             id=uuid4(),
@@ -44,4 +46,8 @@ class EntrenadorService:
         entrenador_existente = self.repository.get_by_id(entrenador_id) # se crea una variable para buscarloo
         if not entrenador_existente:
             raise NotFoundException("entrenador", entrenador_id)
+
+        pokemones = self.pokemon_repository.get_by_entrenador_id(entrenador_id) 
+        if pokemones:
+            raise ConflictError(f"No se puede eliminar el entrenador {entrenador_id} porque tiene Pokémon asignados. Transfiérelos o libéralos antes de eliminarlo.")
         self.repository.delete(entrenador_id) #si lo pilla lo elimina de la memoria por su id
