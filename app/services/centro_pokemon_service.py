@@ -4,7 +4,7 @@ from app.domain.models import CentroPokemon, EstadoAtencion
 from app.repositories.centro_pokemon_repository import CentroPokemonRepository
 from app.schemas.schemas import CrearCentroPokemon
 from app.repositories.registro_medico_repository import RegistroMedicoRepository
-from app.core.exceptions import NotFoundException, BusinessRuleError
+from app.core.exceptions import NotFoundException, BusinessRuleError, ConflictError
 
 class CentroPokemonService:
     def __init__(self, centro_repo: CentroPokemonRepository, registro_repo: RegistroMedicoRepository):
@@ -39,14 +39,28 @@ class CentroPokemonService:
 
     def eliminar_centro_pokemon(self, centro_id: UUID) -> None:
         self.obtener_por_id(centro_id)
+        
         tiene_pacientes_activos = any(
             r.centro_id == centro_id and r.estado == EstadoAtencion.EN_TRATAMIENTO
             for r in self.registro_repo.obtener_todos()
         )
+        registros_del_centro = [
+            registro
+            for registro in self.registro_repo.obtener_todos()
+            if registro.centro_id == centro_id
+        ]
+
         if tiene_pacientes_activos:
             raise BusinessRuleError(
                 f"No se puede eliminar el centro {centro_id}: tiene pokemones en tratamiento.")
+
+        if registros_del_centro:
+            raise ConflictError(f"No se puede eliminar el centro {centro_id}: tiene registros médicos históricos asociados.")
+
+        
         self.centro_repo.delete(centro_id)
+
+        
     
     def actualizar_centro_pokemon(self, centro_id: UUID, datos: CrearCentroPokemon) -> CentroPokemon:
         actualizado = self.centro_repo.actualizar(centro_id, datos)

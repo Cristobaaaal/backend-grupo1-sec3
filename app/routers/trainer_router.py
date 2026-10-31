@@ -3,10 +3,10 @@ from typing import List
 from uuid import UUID
 from app.schemas.schemas import CrearEntrenador, EntrenadorResponse, ErrorResponse
 from app.services.trainer_service import EntrenadorService
-from app.core.dependencies import trainer_repo
+from app.core.dependencies import trainer_repo, pokemon_repo
 
 router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"]) #todas las urls q tengan "entrenadores" van a tener la etiqueta de "Entrenadores"
-_service = EntrenadorService(trainer_repo) #se instancia la clase EntrenadorService
+_service = EntrenadorService(trainer_repo, pokemon_repo) #se instancia la clase EntrenadorService
 
 @router.post(
     "/",
