@@ -13,7 +13,7 @@ API REST para gestionar entrenadores, Pokémon, centros Pokémon y registros mé
 
 ## Puesta en marcha desde una copia limpia
 
-Se requiere Python 3.13 o superior. Ejecuta todos los comandos desde la raíz del repositorio.
+Se requiere Python 3.13 o superior y uv instalado. Comprueba que está disponible con `uv --version`. Ejecuta todos los comandos desde la raíz del repositorio.
 
 1. Clona el repositorio y entra al directorio:
 
@@ -22,23 +22,13 @@ Se requiere Python 3.13 o superior. Ejecuta todos los comandos desde la raíz de
    cd backend-grupo1-sec3
    ~~~
 
-2. Crea el entorno virtual e instala las dependencias:
-
-   **Windows PowerShell**
-
-   ~~~powershell
-   python -m venv .venv
-   .\.venv\Scripts\Activate.ps1
-   python -m pip install -r requirements.txt
-   ~~~
-
-   **Linux/macOS**
+2. Prepara el entorno e instala las dependencias con uv. El comando es el mismo en Windows, Linux y macOS:
 
    ~~~bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   python -m pip install -r requirements.txt
+   uv sync --locked
    ~~~
+
+   uv crea automáticamente el entorno virtual `.venv` e instala las versiones registradas en `uv.lock`, comprobando que coincidan con `pyproject.toml`. No necesitas activar el entorno: `uv run` ejecuta los comandos dentro de él. Para este procedimiento no se utiliza `requirements.txt`.
 
 3. Copia la configuración de ejemplo si quieres definir explícitamente la ruta de la base de datos. Si omites este paso, la API usa igualmente el archivo local pokemon.db:
 
@@ -51,8 +41,8 @@ Se requiere Python 3.13 o superior. Ejecuta todos los comandos desde la raíz de
 4. Crea las tablas con la migración y carga los datos de demostración:
 
    ~~~powershell
-   python -m alembic upgrade head
-   python -m app.infrastructure.seeders.seed
+   uv run alembic upgrade head
+   uv run python -m app.infrastructure.seeders.seed
    ~~~
 
    El seeder agrega dos entrenadores, dos Pokémon, dos centros y dos registros médicos. Si lo ejecutas otra vez, omite los ID ya existentes.
@@ -60,7 +50,7 @@ Se requiere Python 3.13 o superior. Ejecuta todos los comandos desde la raíz de
 5. Inicia el servidor:
 
    ~~~powershell
-   python -m uvicorn app.main:app --reload
+   uv run uvicorn app.main:app --reload
    ~~~
 
 La API queda en http://127.0.0.1:8000 y la interfaz interactiva en http://127.0.0.1:8000/docs. El contrato OpenAPI también está en http://127.0.0.1:8000/openapi.json. Para usar otra ruta de SQLite, configura DATABASE_URL antes de ejecutar la migración y el servidor; ambos deben apuntar a la misma base.
@@ -192,5 +182,13 @@ Los errores controlados tienen una estructura común:
 | 422 | Parámetro o cuerpo inválido |
 
 ## Pruebas
+
+Ejecuta las pruebas automatizadas desde la raíz del repositorio con uv:
+
+~~~bash
+uv run python -m unittest discover -s tests -v
+~~~
+
+Las pruebas crean una base SQLite temporal por caso, preparan sus tablas y activan las claves foráneas. Al terminar eliminan esa base; no modifican pokemon.db. No es necesario iniciar Uvicorn ni ejecutar el seeder para estas pruebas: TestClient ejecuta la aplicación y cada caso crea sus propios datos.
 
 La colección manual está en [app/tests_manual/pruebas.http](app/tests_manual/pruebas.http) y puede abrirse con REST Client en VS Code. La preparación de la base y el seeder descritos arriba permiten reproducir las peticiones sobre datos conocidos. La evidencia y los casos de prueba finales se preparan por separado.

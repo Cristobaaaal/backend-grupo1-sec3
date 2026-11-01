@@ -6,7 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import Base, get_db
@@ -21,6 +21,8 @@ class APIIntegracionTests(unittest.TestCase):
         self.directorio = tempfile.TemporaryDirectory()
         self.url = f"sqlite:///{Path(self.directorio.name) / 'pruebas.db'}"
         self._abrir_motor()
+        with self.motor.connect() as conexion:
+            self.assertEqual(conexion.scalar(text("PRAGMA foreign_keys")), 1)
         Base.metadata.create_all(self.motor)
         app.dependency_overrides[get_db] = self._sesion
         self.cliente = TestClient(app)
@@ -35,6 +37,14 @@ class APIIntegracionTests(unittest.TestCase):
         self.motor = create_engine(
             self.url, connect_args={"check_same_thread": False}
         )
+
+        @event.listens_for(self.motor, "connect")
+        def activar_claves_foraneas(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("PRAGMA foreign_keys=ON")
+            finally:
+                cursor.close()
 
     def _sesion(self):
         with Session(self.motor) as db:
