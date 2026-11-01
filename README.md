@@ -1,174 +1,194 @@
-# Backend Pokémon API - FastAPI
+# API Pokémon
 
-API REST desarrollada con **FastAPI** para la gestión de Entrenadores, Pokémones, Centros Pokémon y Registros Médicos. El proyecto sigue los principios de **Clean Architecture** (Arquitectura Limpia) dividido en capas (*Domain, Repository, Service, Router*).
+API REST para gestionar entrenadores, Pokémon, centros Pokémon y registros médicos. Usa FastAPI, Pydantic, SQLAlchemy, SQLite y Alembic. Proyecto de Desarrollo de Backend (ICINF1108).
 
-Proyecto grupal del ramo **Desarrollo de Backend (ICINF1108)**.
+## Integrantes
 
----
-
-## Integrantes y responsabilidades
-
-| Integrante | Responsabilidad principal |
+| Integrante | Área principal |
 |---|---|
-| [Benjamín Pedraza](https://github.com/bpedrazav) | Coordinación y seguimiento + Documentación e integración (organización del backlog, README, Swagger/OpenAPI) |
-| [Cristobal Dapellus](https://github.com/Cristobaaaal) | API y lógica de negocio (implementación de endpoints, servicios, manejo de errores) |
-| [Franco Lillo](https://github.com/francou-ops) | Dominio y datos (modelado de entidades, relaciones, DTO, validaciones) |
-| Simon Millaguir(https://github.com/smillanguir2026-cloud) | Calidad y pruebas (verificación funcional de endpoints, colección de pruebas manuales) |
+| [Benjamín Pedraza](https://github.com/bpedrazav) | Integración, OpenAPI y documentación |
+| [Cristóbal Dapellus](https://github.com/Cristobaaaal) | Servicios, reglas de negocio y endpoints |
+| [Franco Lillo](https://github.com/francou-ops) | Dominio, repositorios y persistencia |
+| [Simón Millaguir](https://github.com/smillanguir2026-cloud) | Pruebas y datos de demostración |
 
-Todos los integrantes comprenden el funcionamiento completo de la API y participaron en su desarrollo, pruebas e integración.
+## Puesta en marcha desde una copia limpia
 
----
+Se requiere Python 3.13 o superior y uv instalado. Comprueba que está disponible con `uv --version`. Ejecuta todos los comandos desde la raíz del repositorio.
 
-## Arquitectura del Proyecto
+1. Clona el repositorio y entra al directorio:
 
-El código está estructurado en módulos para mantener la separación de responsabilidades:
+   ~~~powershell
+   git clone https://github.com/Cristobaaaal/backend-grupo1-sec3.git
+   cd backend-grupo1-sec3
+   ~~~
 
-```
-backend-grupo1-sec3/
-├── app/
-│   ├── core/           # Excepciones globales (APIException), handlers y repos compartidos (dependencies.py)
-│   ├── domain/         # Modelos de entidad del dominio
-│   ├── repositories/   # Persistencia en memoria
-│   ├── routers/        # Endpoints de la API (Controllers)
-│   ├── schemas/        # Validaciones de entrada y salida (Pydantic)
-│   ├── services/       # Reglas de negocio
-│   ├── tests_manual/   # Colección de pruebas manuales (.http)
-│   └── main.py         # Punto de entrada de la aplicación FastAPI
-├── requirements.txt    # Dependencias del proyecto
-└── README.md           # Documentación del proyecto
-```
+2. Prepara el entorno e instala las dependencias con uv. El comando es el mismo en Windows, Linux y macOS:
 
----
+   ~~~bash
+   uv sync --locked
+   ~~~
 
-## Instalación y Configuración Local
+   uv crea automáticamente el entorno virtual `.venv` e instala las versiones registradas en `uv.lock`, comprobando que coincidan con `pyproject.toml`. No necesitas activar el entorno: `uv run` ejecuta los comandos dentro de él. Para este procedimiento no se utiliza `requirements.txt`.
 
-### Prerrequisitos
-* Python 3.10 o superior instalado.
+3. Copia la configuración de ejemplo si quieres definir explícitamente la ruta de la base de datos. Si omites este paso, la API usa igualmente el archivo local pokemon.db:
 
-### 1. Clonar el repositorio
+   ~~~powershell
+   Copy-Item .env.example .env
+   ~~~
 
-```
-git clone https://github.com/Cristobaaaal/backend-grupo1-sec3
-cd backend-grupo1-sec3
-```
+   En Linux/macOS usa: cp .env.example .env. La variable DATABASE_URL admite la URL de SQLite; el valor de ejemplo es sqlite:///./pokemon.db. El archivo .env se carga al iniciar la aplicación. No incluyas datos privados en el repositorio.
 
-### 2. Crear y activar el entorno virtual
+4. Crea las tablas con la migración y carga los datos de demostración:
 
-* **Windows:**
-  ```
-  python -m venv venv
-  venv\Scripts\activate
-  ```
+   ~~~powershell
+   uv run alembic upgrade head
+   uv run python -m app.infrastructure.seeders.seed
+   ~~~
 
-* **Linux / macOS:**
-  ```
-  python3 -m venv venv
-  source venv/bin/activate
-  ```
+   El seeder agrega dos entrenadores, dos Pokémon, dos centros y dos registros médicos. Si lo ejecutas otra vez, omite los ID ya existentes.
 
-### 3. Instalar dependencias
+5. Inicia el servidor:
 
-```
-pip install -r requirements.txt
-```
+   ~~~powershell
+   uv run uvicorn app.main:app --reload
+   ~~~
 
-### 4. Ejecutar la aplicación
+La API queda en http://127.0.0.1:8000 y la interfaz interactiva en http://127.0.0.1:8000/docs. El contrato OpenAPI también está en http://127.0.0.1:8000/openapi.json. Para usar otra ruta de SQLite, configura DATABASE_URL antes de ejecutar la migración y el servidor; ambos deben apuntar a la misma base.
 
-```
-uvicorn app.main:app --reload
-```
+## Problema que resuelve
 
-La API queda disponible en `http://127.0.0.1:8000`.
+La API centraliza el registro de Pokémon y sus entrenadores, permite asignar o transferir su responsable y mantiene la atención médica asociada a centros. Las reglas de negocio evitan, entre otros casos, asignar un Pokémon que ya tiene entrenador, registrar atención en un centro fuera de servicio y eliminar recursos que todavía tienen relaciones que deben conservarse.
 
----
+## Arquitectura
 
-## Documentación interactiva (Swagger/OpenAPI)
+Cada petición sigue este recorrido:
 
-Con el servidor corriendo, la documentación interactiva generada automáticamente está disponible en:
+~~~text
+Cliente → Router FastAPI → DTO Pydantic → Servicio → Repositorio SQLAlchemy → SQLite
+                ↓             ↓              ↓
+            Depends       validación      modelo de dominio / mapper
+                ↓
+          sesión por petición
+~~~
 
-**http://127.0.0.1:8000/docs**
+El router recibe HTTP y declara el contrato; el DTO valida entrada y salida; el servicio ejecuta las reglas; el repositorio guarda y consulta las entidades; el mapper convierte entre modelos de dominio y ORM. FastAPI crea y cierra una sesión de base de datos por petición mediante Depends. Alembic administra el esquema.
 
-Ahí se puede ver el detalle completo de cada endpoint (parámetros, ejemplos de entrada/salida, respuestas posibles) y ejecutar peticiones de prueba directamente desde el navegador.
+Los [diagramas de clases, datos y flujo de peticiones](docs/diagramas.md) muestran las relaciones y las capas con más detalle.
 
----
+~~~text
+app/
+├── core/             # Dependencias, excepciones y manejadores de errores
+├── domain/           # Entidades y enumeraciones del dominio
+├── infrastructure/   # Conexión, modelos ORM, mappers y seeder
+├── repositories/     # Consultas y persistencia SQLAlchemy
+├── routers/          # Rutas HTTP
+├── schemas/          # DTO y validaciones Pydantic
+├── services/         # Casos de uso y reglas de negocio
+├── tests_manual/     # Peticiones HTTP reproducibles
+└── main.py           # Aplicación FastAPI
+migrations/           # Migraciones Alembic
+docs/diagramas.md     # Diagramas Mermaid
+~~~
 
-## Pruebas manuales
+## Modelo y reglas principales
 
-La colección de pruebas manuales está en `app/tests_manual/pruebas.http`. Contiene requests para las 4 entidades, incluyendo casos exitosos y casos de error (404, 422, y las reglas de negocio). Se puede ejecutar directamente en VS Code con la extensión **REST Client**, o usar cada request como referencia para reproducirla en Postman/Thunder Client.
+Un entrenador puede tener muchos Pokémon; cada Pokémon puede estar sin entrenador o tener uno. Un Pokémon y un centro pueden aparecer en muchos registros médicos; cada registro médico pertenece a un único Pokémon y a un único centro. Las claves foráneas están definidas en los modelos ORM y SQLite las aplica en las conexiones de la API.
 
----
+- La asignación exige que el Pokémon no tenga entrenador; la transferencia exige un entrenador diferente.
+- Un entrenador con Pokémon asociados no se puede eliminar.
+- Un Pokémon con registros médicos no se puede eliminar.
+- El centro debe existir y estar en servicio para registrar atención. La fecha de ingreso no puede estar en el futuro.
+- No se puede eliminar un centro con pacientes en tratamiento ni con registros médicos históricos.
 
-## Manejo de errores
+## Contrato HTTP
 
-Todos los errores controlados por la API devuelven la misma estructura JSON:
+Hay 28 operaciones de las cuatro entidades, más GET / de bienvenida. Swagger muestra parámetros, ejemplos y códigos de respuesta.
 
-```json
+### Entrenadores
+
+| Método | Ruta | Acción |
+|---|---|---|
+| POST | /entrenadores/ | Crear |
+| GET | /entrenadores/ | Listar |
+| GET | /entrenadores/{entrenador_id} | Obtener por ID |
+| PUT | /entrenadores/{entrenador_id} | Reemplazar datos |
+| DELETE | /entrenadores/{entrenador_id} | Eliminar |
+
+### Pokémon
+
+| Método | Ruta | Acción |
+|---|---|---|
+| POST | /pokemones/ | Crear |
+| GET | /pokemones/ | Listar con filtro, orden y paginación |
+| GET | /pokemones/sin-entrenador | Listar sin entrenador |
+| GET | /pokemones/tipo/{tipo} | Listar por tipo |
+| GET | /pokemones/{pokemon_id} | Obtener por ID |
+| GET | /pokemones/entrenador/{entrenador_id} | Listar por entrenador |
+| PUT | /pokemones/{pokemon_id} | Reemplazar datos |
+| DELETE | /pokemones/{pokemon_id} | Eliminar |
+| PATCH | /pokemones/{pokemon_id}/asignar/{entrenador_id} | Asignar entrenador |
+| PATCH | /pokemones/{pokemon_id}/transferir/{nuevo_entrenador_id} | Transferir |
+| PATCH | /pokemones/{pokemon_id}/liberar | Liberar |
+| PATCH | /pokemones/{pokemon_id}/stats | Cambiar nivel y puntos de vida |
+
+El listado acepta tipo (FUEGO, AGUA, PLANTA o ELECTRICO), ordenar_por (nombre, nivel o puntos_vida), direccion (asc o desc), pagina (desde 1) y limite (1 a 100). Por ejemplo:
+
+~~~text
+GET /pokemones/?tipo=ELECTRICO&ordenar_por=nivel&direccion=desc&pagina=1&limite=20
+~~~
+
+La respuesta incluye items, total, pagina, limite y total_paginas.
+
+### Centros Pokémon
+
+| Método | Ruta | Acción |
+|---|---|---|
+| POST | /centros-pokemon/ | Crear |
+| GET | /centros-pokemon/ | Listar |
+| GET | /centros-pokemon/ciudad/{ciudad} | Buscar por ciudad |
+| GET | /centros-pokemon/{centro_id} | Obtener por ID |
+| PUT | /centros-pokemon/{centro_id} | Reemplazar datos |
+| DELETE | /centros-pokemon/{centro_id} | Eliminar |
+
+### Registros médicos
+
+| Método | Ruta | Acción |
+|---|---|---|
+| POST | /registros-medicos/ | Crear |
+| GET | /registros-medicos/ | Listar |
+| GET | /registros-medicos/{registro_id} | Obtener por ID |
+| PUT | /registros-medicos/{registro_id} | Reemplazar datos |
+| DELETE | /registros-medicos/{registro_id} | Eliminar |
+
+## Errores
+
+Los errores controlados tienen una estructura común:
+
+~~~json
 {
   "error": {
     "code": "RESOURCE_NOT_FOUND",
-    "message": "No existe un pokemon con el ID ...",
+    "message": "No existe el recurso solicitado",
     "details": []
   }
 }
-```
+~~~
 
-| Situación | HTTP | `code` |
-|---|---|---|
-| Recurso no existe | 404 | `RESOURCE_NOT_FOUND` |
-| Viola regla de negocio | 400 | `BUSINESS_RULE_VIOLATION` |
-| Conflicto | 409 | `RESOURCE_CONFLICT` |
-| Falla validación de datos | 422 | `VALIDATION_ERROR` |
+| HTTP | Significado |
+|---|---|
+| 400 | Regla de negocio incumplida |
+| 404 | Recurso inexistente |
+| 409 | Conflicto con relaciones existentes |
+| 422 | Parámetro o cuerpo inválido |
 
----
+## Pruebas
 
-## Contrato de Endpoints
+Ejecuta las pruebas automatizadas desde la raíz del repositorio con uv:
 
-### Entrenadores (`/entrenadores`)
+~~~bash
+uv run python -m unittest discover -s tests -v
+~~~
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/entrenadores/` | Crear entrenador |
-| GET | `/entrenadores/` | Listar entrenadores |
-| GET | `/entrenadores/{entrenador_id}` | Obtener entrenador por ID |
-| PUT | `/entrenadores/{entrenador_id}` | Actualizar entrenador |
-| DELETE | `/entrenadores/{entrenador_id}` | Eliminar entrenador |
+Las pruebas crean una base SQLite temporal por caso, preparan sus tablas y activan las claves foráneas. Al terminar eliminan esa base; no modifican pokemon.db. No es necesario iniciar Uvicorn ni ejecutar el seeder para estas pruebas: TestClient ejecuta la aplicación y cada caso crea sus propios datos.
 
-### Pokémones (`/pokemones`)
-
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/pokemones/` | Crear pokémon (valida que `entrenador_id` exista, si viene) |
-| GET | `/pokemones/` | Listar pokémones — soporta filtro (`tipo`), orden (`ordenar_por`, `direccion`) y paginación (`pagina`, `limite`) |
-| GET | `/pokemones/sin-entrenador` | Listar pokémones sin entrenador asignado |
-| GET | `/pokemones/tipo/{tipo}` | Listar pokémones por tipo |
-| GET | `/pokemones/{pokemon_id}` | Obtener pokémon por ID |
-| GET | `/pokemones/entrenador/{entrenador_id}` | Listar pokémones de un entrenador |
-| PUT | `/pokemones/{pokemon_id}` | Actualizar pokémon |
-| DELETE | `/pokemones/{pokemon_id}` | Eliminar pokémon |
-| PATCH | `/pokemones/{pokemon_id}/asignar/{entrenador_id}` | Asignar entrenador a un pokémon sin entrenador |
-| PATCH | `/pokemones/{pokemon_id}/transferir/{nuevo_entrenador_id}` | Transferir pokémon a otro entrenador |
-| PATCH | `/pokemones/{pokemon_id}/liberar` | Liberar pokémon (queda sin entrenador) |
-| PATCH | `/pokemones/{pokemon_id}/stats` | Actualizar nivel y puntos de vida |
-
-### Centros Pokémon (`/centros-pokemon`)
-
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/centros-pokemon/` | Crear centro pokémon |
-| GET | `/centros-pokemon/` | Listar centros |
-| GET | `/centros-pokemon/ciudad/{ciudad}` | Listar centros por ciudad |
-| GET | `/centros-pokemon/{centro_id}` | Obtener centro por ID |
-| PUT | `/centros-pokemon/{centro_id}` | Actualizar centro |
-| DELETE | `/centros-pokemon/{centro_id}` | Eliminar centro (rechaza si tiene pacientes `EN_TRATAMIENTO`) |
-
-### Registros Médicos (`/registros-medicos`)
-
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/registros-medicos/` | Crear registro médico (valida que `pokemon_id` y `centro_id` existan, centro en servicio y fecha no futura) |
-| GET | `/registros-medicos/` | Listar registros médicos |
-| GET | `/registros-medicos/{registro_id}` | Obtener registro por ID |
-| PUT | `/registros-medicos/{registro_id}` | Actualizar registro médico |
-| DELETE | `/registros-medicos/{registro_id}` | Eliminar registro médico |
-
-**Total: 28 endpoints.**
+La colección manual está en [app/tests_manual/pruebas.http](app/tests_manual/pruebas.http) y puede abrirse con REST Client en VS Code. La preparación de la base y el seeder descritos arriba permiten reproducir las peticiones sobre datos conocidos. La evidencia y los casos de prueba finales se preparan por separado.

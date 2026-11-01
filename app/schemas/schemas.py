@@ -7,6 +7,22 @@ from app.domain.models import TipoPokemon, EstadoAtencion
 T = TypeVar("T")
 
 class PaginatedResponse(BaseModel, Generic[T]):
+    model_config = ConfigDict(json_schema_extra={
+        "examples": [{
+            "items": [{
+                "id": "30000000-0000-4000-8000-000000000001",
+                "nombre": "Pikachu",
+                "tipo_principal": "ELECTRICO",
+                "nivel": 20,
+                "puntos_vida": 80,
+                "entrenador_id": "10000000-0000-4000-8000-000000000001",
+            }],
+            "total": 1,
+            "pagina": 1,
+            "limite": 20,
+            "total_paginas": 1,
+        }]
+    })
     items: List[T]
     total: int
     pagina: int
@@ -30,6 +46,15 @@ class CrearEntrenador(BaseModel):
     medallas_obtenidas: int = Field(default=0, ge=0, le=8)
 
 class CrearPokemon(BaseModel):
+    model_config = ConfigDict(json_schema_extra={
+        "examples": [{
+            "nombre": "Pikachu",
+            "tipo_principal": "ELECTRICO",
+            "nivel": 20,
+            "puntos_vida": 80,
+            "entrenador_id": "10000000-0000-4000-8000-000000000001",
+        }]
+    })
     nombre: str = Field(..., min_length=2, max_length=15)
     tipo_principal: TipoPokemon
     nivel: int = Field(..., ge=1, le=100)
@@ -54,6 +79,16 @@ class CrearCentroPokemon(BaseModel):
     en_servicio: bool = Field(default=True)
 
 class CrearRegistroMedico(BaseModel):
+    model_config = ConfigDict(json_schema_extra={
+        "examples": [{
+            "pokemon_id": "30000000-0000-4000-8000-000000000001",
+            "centro_id": "20000000-0000-4000-8000-000000000001",
+            "diagnostico": "Agotamiento",
+            "fecha_ingreso": "2026-01-01",
+            "estado": "EN_TRATAMIENTO",
+            "costo": 5000,
+        }]
+    })
     pokemon_id: UUID
     centro_id: UUID
     diagnostico: str = Field(..., min_length=2, max_length=100)
@@ -82,7 +117,17 @@ class EntrenadorResponse(BaseModel):
     medallas_obtenidas: int
 
 class PokemonResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={"examples": [{
+            "id": "30000000-0000-4000-8000-000000000001",
+            "nombre": "Pikachu",
+            "tipo_principal": "ELECTRICO",
+            "nivel": 20,
+            "puntos_vida": 80,
+            "entrenador_id": "10000000-0000-4000-8000-000000000001",
+        }]},
+    )
 
     id: UUID
     nombre: str
@@ -112,7 +157,18 @@ class CentroPokemonResponse(BaseModel):
     en_servicio: bool
 
 class RegistroMedicoResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={"examples": [{
+            "id": "40000000-0000-4000-8000-000000000001",
+            "pokemon_id": "30000000-0000-4000-8000-000000000001",
+            "centro_id": "20000000-0000-4000-8000-000000000001",
+            "diagnostico": "Agotamiento",
+            "fecha_ingreso": "2026-01-01",
+            "estado": "EN_TRATAMIENTO",
+            "costo": 5000,
+        }]},
+    )
 
     id: UUID
     pokemon_id: UUID
