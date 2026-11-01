@@ -1,12 +1,15 @@
-from fastapi import APIRouter, status
 from typing import List
 from uuid import UUID
+
+from fastapi import APIRouter, Depends, status
+
+from app.core.dependencies import get_trainer_service
 from app.schemas.schemas import CrearEntrenador, EntrenadorResponse, ErrorResponse
 from app.services.trainer_service import EntrenadorService
-from app.core.dependencies import trainer_repo, pokemon_repo
 
-router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"]) #todas las urls q tengan "entrenadores" van a tener la etiqueta de "Entrenadores"
-_service = EntrenadorService(trainer_repo, pokemon_repo) #se instancia la clase EntrenadorService
+
+router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"])
+
 
 @router.post(
     "/",
@@ -18,8 +21,12 @@ _service = EntrenadorService(trainer_repo, pokemon_repo) #se instancia la clase 
         422: {"model": ErrorResponse, "description": "Datos del entrenador inválidos"}
     },
 )
-def crear_entrenador(datos: CrearEntrenador):
-    return _service.crear_entrenador(datos)
+def crear_entrenador(
+    datos: CrearEntrenador,
+    service: EntrenadorService = Depends(get_trainer_service),
+):
+    return service.crear_entrenador(datos)
+
 
 @router.get(
     "/",
@@ -28,8 +35,11 @@ def crear_entrenador(datos: CrearEntrenador):
     summary="Listar entrenadores",
     description="Devuelve todos los entrenadores registrados.",
 )
-def obtener_entrenadores():
-    return _service.obtener_todos()
+def obtener_entrenadores(
+    service: EntrenadorService = Depends(get_trainer_service),
+):
+    return service.obtener_todos()
+
 
 @router.get(
     "/{entrenador_id}",
@@ -41,8 +51,12 @@ def obtener_entrenadores():
         404: {"model": ErrorResponse, "description": "Entrenador no encontrado"}
     },
 )
-def obtener_entrenador(entrenador_id: UUID):
-    return _service.obtener_por_id(entrenador_id)#retorna el entrenador con el id
+def obtener_entrenador(
+    entrenador_id: UUID,
+    service: EntrenadorService = Depends(get_trainer_service),
+):
+    return service.obtener_por_id(entrenador_id)
+
 
 @router.put(
     "/{entrenador_id}",
@@ -55,8 +69,13 @@ def obtener_entrenador(entrenador_id: UUID):
         422: {"model": ErrorResponse, "description": "ID o datos inválidos"},
     },
 )
-def actualizar_entrenador(entrenador_id: UUID, datos: CrearEntrenador):
-    return _service.actualizar_entrenador(entrenador_id, datos) #retorna el entrenador actualizado
+def actualizar_entrenador(
+    entrenador_id: UUID,
+    datos: CrearEntrenador,
+    service: EntrenadorService = Depends(get_trainer_service),
+):
+    return service.actualizar_entrenador(entrenador_id, datos)
+
 
 @router.delete(
     "/{entrenador_id}",
@@ -68,5 +87,8 @@ def actualizar_entrenador(entrenador_id: UUID, datos: CrearEntrenador):
         422: {"model": ErrorResponse, "description": "ID inválido"},
     },
 )
-def eliminar_entrenador(entrenador_id: UUID):
-    _service.eliminar_entrenador(entrenador_id)
+def eliminar_entrenador(
+    entrenador_id: UUID,
+    service: EntrenadorService = Depends(get_trainer_service),
+):
+    service.eliminar_entrenador(entrenador_id)

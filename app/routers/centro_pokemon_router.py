@@ -1,13 +1,12 @@
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from app.schemas.schemas import CrearCentroPokemon, CentroPokemonResponse, ErrorResponse
 from app.services.centro_pokemon_service import CentroPokemonService
-from app.core.dependencies import centro_pokemon_repo, registro_medico_repo
+from app.core.dependencies import get_centro_service
 
 router = APIRouter(prefix="/centros-pokemon", tags=["Centros Pokemon"])
 
-_service = CentroPokemonService(centro_pokemon_repo, registro_medico_repo)
 
 
 @router.post(
@@ -20,8 +19,8 @@ _service = CentroPokemonService(centro_pokemon_repo, registro_medico_repo)
         422: {"model": ErrorResponse, "description": "Datos del centro inválidos"}
     },
 )
-def crear_centro(datos: CrearCentroPokemon):
-    return _service.crear_centro(datos)
+def crear_centro(datos: CrearCentroPokemon, service: CentroPokemonService = Depends(get_centro_service)):
+    return service.crear_centro(datos)
 
 
 @router.get(
@@ -31,8 +30,8 @@ def crear_centro(datos: CrearCentroPokemon):
     summary="Listar centros Pokémon",
     description="Devuelve todos los centros Pokémon registrados.",
 )
-def obtener_centros():
-    return _service.obtener_todos()
+def obtener_centros(service: CentroPokemonService = Depends(get_centro_service)):
+    return service.obtener_todos()
 
 
 @router.get(
@@ -42,8 +41,8 @@ def obtener_centros():
     summary="Buscar centros por ciudad",
     description="Devuelve los centros de la ciudad indicada. Si no hay coincidencias, devuelve una lista vacía.",
 )
-def obtener_centros_por_ciudad(ciudad: str):
-    return _service.obtener_por_ciudad(ciudad)
+def obtener_centros_por_ciudad(ciudad: str, service: CentroPokemonService = Depends(get_centro_service)):
+    return service.obtener_por_ciudad(ciudad)
 
 @router.get(
     "/{centro_id}",
@@ -56,8 +55,8 @@ def obtener_centros_por_ciudad(ciudad: str):
         422: {"model": ErrorResponse, "description": "ID inválido"},
     },
 )
-def obtener_centro_por_id(centro_id: UUID):
-    return _service.obtener_por_id(centro_id)
+def obtener_centro_por_id(centro_id: UUID, service: CentroPokemonService = Depends(get_centro_service)):
+    return service.obtener_por_id(centro_id)
 
 @router.put(
     "/{centro_id}",
@@ -70,8 +69,8 @@ def obtener_centro_por_id(centro_id: UUID):
         422: {"model": ErrorResponse, "description": "ID o datos inválidos"},
     },
 )
-def actualizar_centro_pokemon(centro_id: UUID, datos: CrearCentroPokemon):
-    return _service.actualizar_centro_pokemon(centro_id, datos)
+def actualizar_centro_pokemon(centro_id: UUID, datos: CrearCentroPokemon, service: CentroPokemonService = Depends(get_centro_service)):
+    return service.actualizar_centro_pokemon(centro_id, datos)
 
 @router.delete(
     "/{centro_id}",
@@ -84,5 +83,5 @@ def actualizar_centro_pokemon(centro_id: UUID, datos: CrearCentroPokemon):
         422: {"model": ErrorResponse, "description": "ID inválido"},
     },
 )
-def eliminar_centro_pokemon(centro_id: UUID):
-    _service.eliminar_centro_pokemon(centro_id)
+def eliminar_centro_pokemon(centro_id: UUID, service: CentroPokemonService = Depends(get_centro_service)):
+    service.eliminar_centro_pokemon(centro_id)
