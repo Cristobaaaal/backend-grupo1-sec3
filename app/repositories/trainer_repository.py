@@ -1,37 +1,91 @@
 from app.domain.models import Entrenador
 from uuid import UUID
 from typing import List, Optional
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+from app.core.exceptions import ConflictError
+from app.infrastructure.models import EntrenadorORM
+from app.infrastructure.mappers import entrenador_a_domain
+from sqlalchemy import select
 
 class EntrenadorRepository:
-    def __init__(self):
-        self._db: List[Entrenador] = [] #el _ es para ponerlo privado y el List[Entrenador] es basicamente definir el tipo de dato
+    def __init__(self, db: Session):
+        self.db = db
 
     def save(self, entrenador: Entrenador) -> Entrenador:
-        self._db.append(entrenador) #se agrega el entrenador a la lista d entrenadores
-        return entrenador #te devuelve el entrenador que se guardo
+        modelo = EntrenadorORM(
+            id=str(entrenador.id),
+            nombre=entrenador.nombre,
+            nivel_experiencia=entrenador.nivel_experiencia,
+            region_origen=entrenador.region_origen,
+            medallas_obtenidas=entrenador.medallas_obtenidas,
+        )
+        self.db.add(modelo) # Añade el objeto para insertarlo
+        try:
+            self.db.commit()
+        except IntegrityError as error:
+            self.db.rollback()
+            raise ConflictError(
+                "La operación entra en conflicto con los datos relacionados o existentes."
+            ) from error
+        except Exception:
+            self.db.rollback()
+            raise
+        self.db.refresh(modelo)     # Recarga los valores de la db
+        return entrenador_a_domain(modelo)  # Devuelve un Entrenador
 
     def get_all(self) -> List[Entrenador]:
-        return self._db #va a buscarte todos los entrenadores que estan en la lista
+        modelos = self.db.scalars(select(EntrenadorORM)).all()
+        return [entrenador_a_domain(modelo) for modelo in modelos]
 
     def get_by_id(self, entrenador_id: UUID) -> Optional[Entrenador]:
-        for entrenador in self._db:
-            if entrenador.id == entrenador_id: #recorre la lista buscando el entrenador con ese id
-                return entrenador #te lo devuelve si lo encuentra
-        return None #sino te lo pasa vacio
+        modelo = self.db.get(EntrenadorORM, str(entrenador_id))
+
+        if modelo is None:
+            return None
+
+        return entrenador_a_domain(modelo)
 
     def delete(self, entrenador_id: UUID) -> bool:
-        trainer = self.get_by_id(entrenador_id) #busca el entrenador con ese id
-        if not trainer: #si no lo encuentra
-            return False 
-        self._db.remove(trainer) #si encuentra al dt lo elimina
-        return True #te devuelve true si lo pudo eliminar
+        modelo = self.db.get(EntrenadorORM, str(entrenador_id))
+
+        if modelo is None:
+            return False
+
+        self.db.delete(modelo)
+        try:
+            self.db.commit()
+        except IntegrityError as error:
+            self.db.rollback()
+            raise ConflictError(
+                "La operación entra en conflicto con los datos relacionados o existentes."
+            ) from error
+        except Exception:
+            self.db.rollback()
+            raise
+        return True
 
     def update(self, entrenador_id: UUID, updated_entrenador: Entrenador) -> Optional[Entrenador]:
-        trainer = self.get_by_id(entrenador_id) #busca el entrenador con ese id
-        if not trainer:
-            return None 
-        trainer.nombre = updated_entrenador.nombre                                                                #actualiza la informacion
-        trainer.region_origen = updated_entrenador.region_origen                                                         #||
-        trainer.medallas_obtenidas = updated_entrenador.medallas_obtenidas                                               #||
-        trainer.nivel_experiencia = updated_entrenador.nivel_experiencia                                                 #||
-        return trainer #te devuelve todo del entrenador actualizado                                                      #||
+        modelo = self.db.get(EntrenadorORM, str(entrenador_id))
+
+        if modelo is None:
+            return None
+
+        modelo.nombre = updated_entrenador.nombre
+        modelo.region_origen = updated_entrenador.region_origen
+        modelo.medallas_obtenidas = updated_entrenador.medallas_obtenidas
+        modelo.nivel_experiencia = updated_entrenador.nivel_experiencia
+
+        try:
+            self.db.commit()
+        except IntegrityError as error:
+            self.db.rollback()
+            raise ConflictError(
+                "La operación entra en conflicto con los datos relacionados o existentes."
+            ) from error
+        except Exception:
+            self.db.rollback()
+            raise
+        self.db.refresh(modelo)
+
+        return entrenador_a_domain(modelo)
