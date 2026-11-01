@@ -18,6 +18,13 @@ app.include_router(pokemon_router)
 app.include_router(centro_pokemon_router)
 app.include_router(registro_medico_router)
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="Bienvenida",
+    description="Confirma que la API está activa y devuelve un mensaje de bienvenida.",
+    responses={200: {"content": {"application/json": {"example": {
+        "message": "Welcome to the Pokemón Medical Center API!"
+    }}}}},
+)
 def bienvenida():
     return {"message": "Welcome to the Pokemón Medical Center API!"}

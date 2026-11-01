@@ -1,7 +1,7 @@
-from typing import List
+from typing import Annotated, List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from app.core.dependencies import get_trainer_service
 from app.schemas.schemas import CrearEntrenador, EntrenadorResponse, ErrorResponse
@@ -9,6 +9,7 @@ from app.services.trainer_service import EntrenadorService
 
 
 router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"])
+EntrenadorId = Annotated[UUID, Path(description="ID del entrenador", examples=["10000000-0000-4000-8000-000000000001"])]
 
 
 @router.post(
@@ -48,11 +49,12 @@ def obtener_entrenadores(
     summary="Obtener entrenador",
     description="Busca un entrenador por su ID. Devuelve 404 si no existe.",
     responses={
-        404: {"model": ErrorResponse, "description": "Entrenador no encontrado"}
+        404: {"model": ErrorResponse, "description": "Entrenador no encontrado"},
+        422: {"model": ErrorResponse, "description": "ID inválido"},
     },
 )
 def obtener_entrenador(
-    entrenador_id: UUID,
+    entrenador_id: EntrenadorId,
     service: EntrenadorService = Depends(get_trainer_service),
 ):
     return service.obtener_por_id(entrenador_id)
@@ -70,7 +72,7 @@ def obtener_entrenador(
     },
 )
 def actualizar_entrenador(
-    entrenador_id: UUID,
+    entrenador_id: EntrenadorId,
     datos: CrearEntrenador,
     service: EntrenadorService = Depends(get_trainer_service),
 ):
@@ -81,14 +83,15 @@ def actualizar_entrenador(
     "/{entrenador_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Eliminar entrenador",
-    description="Elimina un entrenador por su ID. Devuelve 404 si no existe.",
+    description="Elimina un entrenador si no tiene Pokémon asignados.",
     responses={
         404: {"model": ErrorResponse, "description": "Entrenador no encontrado"},
+        409: {"model": ErrorResponse, "description": "El entrenador tiene Pokémon asignados"},
         422: {"model": ErrorResponse, "description": "ID inválido"},
     },
 )
 def eliminar_entrenador(
-    entrenador_id: UUID,
+    entrenador_id: EntrenadorId,
     service: EntrenadorService = Depends(get_trainer_service),
 ):
     service.eliminar_entrenador(entrenador_id)
