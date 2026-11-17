@@ -1,0 +1,56 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pokemon_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://pokemon_user:pokemon_pass@postgres:5432/pokemon_db}
+    volumes:
+      - ./app:/app/app:ro
+    depends_on:
+      - postgres
+    networks:
+      - pokemon_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: pokemon_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pokemon_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pokemon_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-pokemon_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pokemon_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pokemon_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@pokemon.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - pokemon_network
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  pokemon_network:
+    driver: bridge
