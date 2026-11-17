@@ -8,9 +8,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-sqlite:///./pokemon.db}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://pokemon_user:pokemon_pass@postgres:5432/pokemon_db}
     volumes:
       - ./app:/app/app:ro
+    depends_on:
+      - postgres
     networks:
       - pokemon_network
 
