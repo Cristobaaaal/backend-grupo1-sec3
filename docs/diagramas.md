@@ -51,7 +51,42 @@ classDiagram
         EN_TRATAMIENTO
         DADO_DE_ALTA
     }
+    class RolUsuario {
+        <<enumeration>>
+        ADMIN
+        VETERINARIO
+        ENTRENADOR
+    }
+    class Usuario {
+        +UUID id
+        +str email
+        +str password_hash
+        +str nombre_completo
+        +RolUsuario rol
+        +bool activo
+        +int intentos_fallidos
+        +datetime? bloqueado_hasta
+    }
+    class RefreshToken {
+        +UUID id
+        +str token_hash
+        +UUID usuario_id
+        +datetime expira_en
+        +bool revocado
+        +datetime creado_en
+    }
+    class PasswordResetToken {
+        +UUID id
+        +str token_hash
+        +UUID usuario_id
+        +datetime expira_en
+        +bool usado
+        +datetime creado_en
+    }
 
+    Usuario "1" -- "0..*" RefreshToken : posee
+    Usuario "1" -- "0..*" PasswordResetToken : solicita
+    Usuario --> RolUsuario : rol
     Entrenador "0..1" -- "0..*" Pokemon : asigna
     Pokemon "1" -- "0..*" RegistroMedico : tiene
     CentroPokemon "1" -- "0..*" RegistroMedico : atiende
@@ -67,10 +102,38 @@ PK indica clave primaria y FK indica clave foránea. La FK entrenador_id es opci
 
 ~~~mermaid
 erDiagram
+    usuarios ||--o{ refresh_tokens : genera
+    usuarios ||--o{ password_reset_tokens : solicita
     entrenadores |o--o{ pokemones : asigna
     pokemones ||--o{ registros_medicos : recibe
     centros_pokemon ||--o{ registros_medicos : atiende
 
+    usuarios {
+        string id PK
+        string email
+        string password_hash
+        string nombre_completo
+        string rol
+        boolean activo
+        int intentos_fallidos
+        datetime bloqueado_hasta
+    }
+    refresh_tokens {
+        string id PK
+        string token_hash
+        string usuario_id FK
+        datetime expira_en
+        boolean revocado
+        datetime creado_en
+    }
+    password_reset_tokens {
+        string id PK
+        string token_hash
+        string usuario_id FK
+        datetime expira_en
+        boolean usado
+        datetime creado_en
+    }
     entrenadores {
         string id PK
         string nombre
