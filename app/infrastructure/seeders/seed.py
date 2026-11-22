@@ -6,6 +6,7 @@ from app.infrastructure.models import (
     PokemonORM,
     CentroPokemonORM,
     RegistroMedicoORM,
+    UsuarioORM,
 ) #Importaciones Fin
 
 
@@ -94,7 +95,43 @@ def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de dato
         },
     ]
 
-    grupos = [ #Grupos de datos a insertar en la base de datos, incluyendo entrenadores, centros, pokemones y registros médicos.
+    # Usuarios de demostración para los roles requeridos en la pauta (sin secretos reales expuestos)
+    # Contraseña demo genérica (Argon2id): "Password1234!"
+    usuarios = [
+        {
+            "id": "50000000-0000-4000-8000-000000000001",
+            "email": "admin@pokemon.com",
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$qF3j9q1U4O0aZ1kK8w7X9g$c5e0mYwZ3jL+K7xQ9p8u7v1t5r4e3w2q1a0b9c8d7e6",
+            "nombre_completo": "Profesor Oak (Administrador)",
+            "rol": "ADMIN",
+            "activo": True,
+            "intentos_fallidos": 0,
+            "bloqueado_hasta": None,
+        },
+        {
+            "id": "50000000-0000-4000-8000-000000000002",
+            "email": "veterinario@pokemon.com",
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$qF3j9q1U4O0aZ1kK8w7X9g$c5e0mYwZ3jL+K7xQ9p8u7v1t5r4e3w2q1a0b9c8d7e6",
+            "nombre_completo": "Enfermera Joy (Veterinaria)",
+            "rol": "VETERINARIO",
+            "activo": True,
+            "intentos_fallidos": 0,
+            "bloqueado_hasta": None,
+        },
+        {
+            "id": "50000000-0000-4000-8000-000000000003",
+            "email": "entrenador@pokemon.com",
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$qF3j9q1U4O0aZ1kK8w7X9g$c5e0mYwZ3jL+K7xQ9p8u7v1t5r4e3w2q1a0b9c8d7e6",
+            "nombre_completo": "Ash Ketchum (Entrenador)",
+            "rol": "ENTRENADOR",
+            "activo": True,
+            "intentos_fallidos": 0,
+            "bloqueado_hasta": None,
+        },
+    ]
+
+    grupos = [ #Grupos de datos a insertar en la base de datos
+        (UsuarioORM, usuarios),
         (EntrenadorORM, entrenadores),
         (CentroPokemonORM, centros),
         (PokemonORM, pokemones),
