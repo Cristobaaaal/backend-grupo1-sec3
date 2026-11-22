@@ -96,12 +96,12 @@ def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de dato
     ]
 
     # Usuarios de demostración para los roles requeridos en la pauta (sin secretos reales expuestos)
-    # Contraseña demo genérica (Argon2id): "Password1234!"
+    # Hashes generados con Argon2id real (RFC 9106)
     usuarios = [
         {
             "id": "50000000-0000-4000-8000-000000000001",
             "email": "admin@pokemon.com",
-            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$qF3j9q1U4O0aZ1kK8w7X9g$c5e0mYwZ3jL+K7xQ9p8u7v1t5r4e3w2q1a0b9c8d7e6",
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$WCQgCdky1dnCw9zfjOOfEA$zCe2lbK5cpFhE7LIF/Fs9pEakLRKmWGTSRXYoGUU9so",
             "nombre_completo": "Profesor Oak (Administrador)",
             "rol": "ADMIN",
             "activo": True,
@@ -111,7 +111,7 @@ def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de dato
         {
             "id": "50000000-0000-4000-8000-000000000002",
             "email": "veterinario@pokemon.com",
-            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$qF3j9q1U4O0aZ1kK8w7X9g$c5e0mYwZ3jL+K7xQ9p8u7v1t5r4e3w2q1a0b9c8d7e6",
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$fa0SQ9ohrYIOtMoZdp//yg$l8NnNjE6TEq92CfmgXQg6LfoClRVXbcVrGIQ/vh441U",
             "nombre_completo": "Enfermera Joy (Veterinaria)",
             "rol": "VETERINARIO",
             "activo": True,
@@ -121,7 +121,7 @@ def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de dato
         {
             "id": "50000000-0000-4000-8000-000000000003",
             "email": "entrenador@pokemon.com",
-            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$qF3j9q1U4O0aZ1kK8w7X9g$c5e0mYwZ3jL+K7xQ9p8u7v1t5r4e3w2q1a0b9c8d7e6",
+            "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$9FKt2GInOYZ+FkhMJSDLmg$0wg1SsMN7i+Mdt4ItZ5dRsM0byZEyhQHMyvooBnWRCI",
             "nombre_completo": "Ash Ketchum (Entrenador)",
             "rol": "ENTRENADOR",
             "activo": True,
