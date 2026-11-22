@@ -1,6 +1,25 @@
 from uuid import UUID
-from app.domain.models import Entrenador, Pokemon, TipoPokemon, CentroPokemon, RegistroMedico, EstadoAtencion
-from app.infrastructure.models import EntrenadorORM, PokemonORM, CentroPokemonORM, RegistroMedicoORM
+from app.domain.models import (
+    Entrenador,
+    Pokemon,
+    TipoPokemon,
+    CentroPokemon,
+    RegistroMedico,
+    EstadoAtencion,
+    Usuario,
+    RolUsuario,
+    RefreshToken,
+    PasswordResetToken,
+)
+from app.infrastructure.models import (
+    EntrenadorORM,
+    PokemonORM,
+    CentroPokemonORM,
+    RegistroMedicoORM,
+    UsuarioORM,
+    RefreshTokenORM,
+    PasswordResetTokenORM,
+)
 
 
 def entrenador_a_domain(modelo: EntrenadorORM) -> Entrenador: # Recibe y devuelve "Entrenador"
@@ -44,4 +63,36 @@ def registro_a_domain(modelo: RegistroMedicoORM) -> RegistroMedico:
         fecha_ingreso=modelo.fecha_ingreso,
         estado=EstadoAtencion(modelo.estado),
         costo=modelo.costo,
+    )
+
+def usuario_a_domain(modelo: UsuarioORM) -> Usuario:
+    return Usuario(
+        id=UUID(modelo.id),
+        email=modelo.email,
+        password_hash=modelo.password_hash,
+        nombre_completo=modelo.nombre_completo,
+        rol=RolUsuario(modelo.rol),
+        activo=modelo.activo,
+        intentos_fallidos=modelo.intentos_fallidos,
+        bloqueado_hasta=modelo.bloqueado_hasta,
+    )
+
+def refresh_token_a_domain(modelo: RefreshTokenORM) -> RefreshToken:
+    return RefreshToken(
+        id=UUID(modelo.id),
+        token_hash=modelo.token_hash,
+        usuario_id=UUID(modelo.usuario_id),
+        expira_en=modelo.expira_en,
+        revocado=modelo.revocado,
+        creado_en=modelo.creado_en,
+    )
+
+def password_reset_token_a_domain(modelo: PasswordResetTokenORM) -> PasswordResetToken:
+    return PasswordResetToken(
+        id=UUID(modelo.id),
+        token_hash=modelo.token_hash,
+        usuario_id=UUID(modelo.usuario_id),
+        expira_en=modelo.expira_en,
+        usado=modelo.usado,
+        creado_en=modelo.creado_en,
     )
