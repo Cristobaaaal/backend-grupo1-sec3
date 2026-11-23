@@ -1,4 +1,5 @@
-from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, String
+from datetime import datetime
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 from app.infrastructure.database import Base
 
@@ -84,3 +85,60 @@ class RegistroMedicoORM(Base):
     centro = relationship("CentroPokemonORM",
         back_populates ="registros_medicos"
     )
+
+class UsuarioORM(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(String(36), primary_key=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    nombre_completo = Column(String(150), nullable=False)
+    rol = Column(String(50), nullable=False, index=True)
+    activo = Column(Boolean, default=True, nullable=False)
+    intentos_fallidos = Column(Integer, default=0, nullable=False)
+    bloqueado_hasta = Column(DateTime, nullable=True)
+
+    refresh_tokens = relationship(
+        "RefreshTokenORM",
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+    )
+    password_reset_tokens = relationship(
+        "PasswordResetTokenORM",
+        back_populates="usuario",
+        cascade="all, delete-orphan",
+    )
+
+class RefreshTokenORM(Base):
+    __tablename__ = "refresh_tokens"
+
+    id = Column(String(36), primary_key=True)
+    token_hash = Column(String(255), unique=True, nullable=False, index=True)
+    usuario_id = Column(
+        String(36),
+        ForeignKey("usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    expira_en = Column(DateTime, nullable=False)
+    revocado = Column(Boolean, default=False, nullable=False)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    usuario = relationship("UsuarioORM", back_populates="refresh_tokens")
+
+class PasswordResetTokenORM(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(String(36), primary_key=True)
+    token_hash = Column(String(255), unique=True, nullable=False, index=True)
+    usuario_id = Column(
+        String(36),
+        ForeignKey("usuarios.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    expira_en = Column(DateTime, nullable=False)
+    usado = Column(Boolean, default=False, nullable=False)
+    creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    usuario = relationship("UsuarioORM", back_populates="password_reset_tokens")

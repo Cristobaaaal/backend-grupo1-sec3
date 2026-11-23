@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 from typing import Optional
 from uuid import UUID
@@ -14,8 +14,42 @@ class EstadoAtencion(str, Enum):
     EN_TRATAMIENTO = "EN_TRATAMIENTO"
     DADO_DE_ALTA = "DADO_DE_ALTA"
 
+class RolUsuario(str, Enum):
+    ADMIN = "ADMIN"
+    VETERINARIO = "VETERINARIO"
+    ENTRENADOR = "ENTRENADOR"
+
 
 # --- Entidades --- 
+
+@dataclass
+class Usuario:
+    id: UUID
+    email: str
+    password_hash: str
+    nombre_completo: str
+    rol: RolUsuario
+    activo: bool = True
+    intentos_fallidos: int = 0
+    bloqueado_hasta: Optional[datetime] = None
+
+@dataclass
+class RefreshToken:
+    id: UUID
+    token_hash: str
+    usuario_id: UUID
+    expira_en: datetime
+    revocado: bool = False
+    creado_en: Optional[datetime] = None
+
+@dataclass
+class PasswordResetToken:
+    id: UUID
+    token_hash: str
+    usuario_id: UUID
+    expira_en: datetime
+    usado: bool = False
+    creado_en: Optional[datetime] = None
 
 @dataclass  #dataclass para evitar definir el constructor __init__ + los self. (Menos código) 
 class Entrenador:
