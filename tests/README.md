@@ -32,6 +32,39 @@ Ejemplo de un caso puntual:
 python -m pytest tests/unit/test_pokemon_service.py::test_asignar_rechaza_pokemon_que_ya_tiene_entrenador -v
 ```
 
-`test_api_integracion.py` conserva las pruebas HTTP existentes. Los bloques siguientes incorporarán integración con migraciones, autenticación, E2E externos y el reporte de cobertura mínimo del 85%. Los marcadores `integration` y `e2e` quedan registrados para esos niveles.
+## Ejecutar la integración con PostgreSQL
+
+Inicia Docker Desktop y levanta la base separada de pruebas:
+
+```powershell
+docker compose -f tests/docker-compose.test.yml up -d --wait
+python -m pytest tests/integration -m integration -v --junitxml=tests/reports/integration.xml
+```
+
+El contenedor usa PostgreSQL 16, escucha únicamente en `127.0.0.1:5433` y guarda datos temporales en `tmpfs`. Su proyecto Docker es `backend-grupo1-tests`; no comparte contenedores ni volúmenes con el compose de desarrollo.
+
+La URL predeterminada es `postgresql+psycopg2://pokemon_test:pokemon_test@127.0.0.1:5433/pokemon_test`. Estas credenciales pertenecen exclusivamente al contenedor local de prueba. Para otro PostgreSQL de pruebas, configura `TEST_DATABASE_URL`; el nombre de la base debe terminar en `_test`.
+
+`tests/database.py` crea un schema con UUID, aplica `alembic upgrade head` en un proceso separado y dirige las conexiones a ese schema. Al finalizar lo elimina. Las fixtures de pytest limpian sus tablas antes y después de cada caso, conservando `alembic_version`. No se usa `Base.metadata.create_all` ni se sustituyen los repositorios por mocks.
+
+- `integration/test_api.py` conserva las nueve regresiones HTTP anteriores con PostgreSQL y migraciones. Cada caso tiene su propio schema y verifica contrato HTTP, CRUD, reglas y persistencia. Solo se configura la dependencia de sesión para apuntar a la BD de prueba; servicios y repositorios son reales.
+- `integration/test_repositories.py` verifica revisión de Alembic, persistencia entre sesiones, claves primarias y foráneas, rollback, historial médico, orden estable de paginación y búsqueda de centros.
+- `tests/conftest.py` prepara la BD y las sesiones bajo demanda. Ejecutar únicamente las pruebas unitarias no requiere iniciar PostgreSQL.
+
+Para ejecutar el conjunto de pruebas disponible:
+
+```powershell
+python -m pytest tests --junitxml=tests/reports/all.xml
+```
+
+Los XML registran cantidades, resultados y tiempos; `tests/reports/` se excluye de Git. Las pruebas no se omiten si falta la BD: el comando falla e indica cómo iniciarla.
+
+Para detener y retirar el contenedor de pruebas:
+
+```powershell
+docker compose -f tests/docker-compose.test.yml down
+```
+
+La autenticación, los tres flujos E2E externos y el reporte de cobertura mínimo del 85% se incorporarán en los bloques siguientes. Los casos HTTP con `TestClient` se clasifican como integración.
 
 Las dependencias versionadas y los comandos del README principal/CI corresponden a sus responsables; esta suite requiere `pytest` y usará `pytest-cov` para los reportes de cobertura.
