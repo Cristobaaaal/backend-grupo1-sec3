@@ -30,5 +30,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Puerto expuesto por FastAPI
 EXPOSE 8000
 
-# Comando para ejecutar la API (adaptable para desarrollo/producción)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Aplica las migraciones pendientes y luego inicia la API.
+# "alembic upgrade head" no borra datos: solo aplica lo que falta.
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]

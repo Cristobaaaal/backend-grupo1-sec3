@@ -20,3 +20,8 @@ build/
 *.egg-info/
 .idea
 .vscode
+
+Reglas/
+.github/
+k8s/
+.DS_Store

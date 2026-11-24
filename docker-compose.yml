@@ -5,14 +5,33 @@ services:
       dockerfile: Dockerfile
     container_name: pokemon_api
     restart: unless-stopped
+    # En local además se cargan los datos de demostración.
+    # El seeder no duplica: omite los registros que ya existen.
+    command: >
+      sh -c "alembic upgrade head
+      && python -m app.infrastructure.seeders.seed
+      && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://pokemon_user:pokemon_pass@postgres:5432/pokemon_db}
-    volumes:
-      - ./app:/app/app:ro
+      # Se arma con las mismas credenciales que usa el servicio postgres
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-pokemon_user}:${POSTGRES_PASSWORD:-pokemon_pass}@postgres:5432/${POSTGRES_DB:-pokemon_db}
+      - JWT_SECRET=${JWT_SECRET:-cambia_esto_por_un_secreto_seguro}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
     networks:
       - pokemon_network
 
@@ -25,9 +44,14 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pokemon_pass}
       POSTGRES_DB: ${POSTGRES_DB:-pokemon_db}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"  # Cambiar POSTGRES_PORT si el 5432 ya está ocupado
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     networks:
       - pokemon_network
 
@@ -44,6 +68,17 @@ services:
       - pgadmin_data:/var/lib/pgadmin
     depends_on:
       - postgres
+    networks:
+      - pokemon_network
+
+  # Correo de prueba: captura los correos de recuperación sin enviarlos a nadie.
+  # La bandeja web solo se publica en 127.0.0.1 (no queda expuesta a la red).
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: pokemon_mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
     networks:
       - pokemon_network
 

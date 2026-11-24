@@ -1,24 +1,34 @@
-# Matriz de Retroalimentación y Seguimiento
+# Matriz de Retroalimentación y Seguimiento (Entregas I y II → Entrega III)
 
-En cumplimiento del punto 5.2 de la pauta de evaluación de la Entrega III (ICINF1108 - Desarrollo de Backend), este documento registra las observaciones recibidas durante las entregas anteriores, las acciones correspondientes, su evidencia y el estado real de avance en el repositorio.
+En cumplimiento del punto 5.2 de la pauta de la Entrega Final (ICINF1108 · Desarrollo de Backend), este documento registra la evaluación oficial recibida en la entrega unificada de **Entregas I y II** (informe de revisión del docente: **29/30 · Nota 6.8**) junto con las observaciones recibidas durante la presentación oral, detallando las acciones aplicadas, la evidencia en el repositorio y el estado real de cada punto.
 
 ---
 
-## Matriz de Observaciones y Estado
+## 1. Matriz de Observaciones Recibidas
 
-| ID | Observación Recibida | Cambio y Evidencia Aplicada | Comprobación / Estado |
+| ID / Observación recibida | Origen | Cambio y evidencia | Comprobación / Estado |
 |---|---|---|---|
-| **R-01** | **Dockerización integral de la solución**: Se requiere dockerizar la API, PostgreSQL y un visor de base de datos sin depender de SQLite. | Se prepararon `Dockerfile`, `.dockerignore` y `docker-compose.yml`. Falta incorporar `psycopg2-binary` en las dependencias oficiales (`pyproject.toml`) y desacoplar `database.py` de parámetros exclusivos de SQLite. | **Parcial**. Estructura base de compose creada en commit `7da07a7`; pendiente integración de driver Postgres por Felipe (área CI/dependencias). |
-| **R-02** | **Migración de base de datos a PostgreSQL**: Pasar de SQLite local a PostgreSQL con volúmenes persistentes. | Configurado servicio `postgres:16-alpine` con volumen `postgres_data` y variable `DATABASE_URL` en compose y `.env.example`. | **Parcial**. La infraestructura de Docker está lista, pero la conexión nativa de la app se completará con las dependencias de Postgres. |
-| **R-03** | **Orden de arranque de contenedores**: La API no debe levantarse antes de que la base de datos esté lista para recibir conexiones. | Se configuró directiva `depends_on: - postgres` en compose. | **Pendiente / Parcial**. Requiere sumar un `healthcheck` en el servicio Postgres en Docker compose para que el inicio sea verdaderamente condicional al estado saludable. |
-| **R-04** | **Persistencia para autenticación y seguridad**: No existían modelos de datos para usuarios, roles ni tokens. | Se crearon las entidades de dominio y modelos ORM `Usuario`, `RefreshToken` y `PasswordResetToken` con soporte de 3 roles (`ADMIN`, `VETERINARIO`, `ENTRENADOR`). Se generó la migración Alembic `b71d8e12a45c`. | **Resuelta**. Modelos en `app/domain/models.py` y `app/infrastructure/models.py`. Migración probada localmente desde copia limpia. |
-| **R-05** | **Datos de prueba para perfiles de seguridad**: El seeder no contaba con usuarios para validar acceso y autorización en la defensa. | Se incorporaron 3 cuentas de demostración en `app/infrastructure/seeders/seed.py` con hashes Argon2id legítimos sin secretos expuestos en comentarios. | **Resuelta**. Seeder validado con ejecución limpia mediante `uv run python -m app.infrastructure.seeders.seed`. |
-| **R-06** | **Eliminación de archivos compilados `*.pyc` en el repositorio**: Existían archivos binarios `.pyc` commiteados en el árbol de trabajo. | Se eliminaron los 17 archivos `.pyc` rastreados mediante `git rm` y se reforzó `.gitignore` y `.dockerignore`. | **Resuelta**. Comprobado con `git ls-files *.pyc` resultando vacío. |
+| **R-01 · Falta de evidencia de resultados en pruebas iniciales.** En el punto 10 de la revisión E1+E2 se indicó: *"Cumplen en parte (2/3). Hay nueve pruebas automatizadas y 27 bloques en la colección `.http`, sin evidencia del resultado obtenido en ninguna de las dos."* | Revisión escrita E1+E2 (Docente) | Se incorporarán reportes reproducibles de ejecución de pruebas (unitarias, integración y E2E) con cobertura ≥85% y ejecución automática en CI/CD (ramas `feat/tests` y `feat/ci`). | **Pendiente**. A la espera de la integración de la suite completa de pruebas y del pipeline de CI para adjuntar resultados y cobertura del commit final. |
+| **R-02 · Migrar la base de datos de SQLite a PostgreSQL.** Pasar de SQLite en archivo local a PostgreSQL con almacenamiento persistente. | Defensa oral E1+E2 (Docente) | Se incorporó `psycopg2-binary` en `pyproject.toml` y `uv.lock`; se adaptó `app/infrastructure/database.py` para conectarse a PostgreSQL sin parámetros exclusivos de SQLite; se configuró `postgres:16-alpine` con volumen persistente `postgres_data` en `docker-compose.yml` y `.env.example`. Commits: `7da07a7`, `dc0006e`, `5814197` (PR #35 y PR #37). | **Resuelta**. Verificado en `main`: la API conecta con PostgreSQL y conserva los datos en el volumen `postgres_data` al recrear el contenedor. |
+| **R-03 · Dockerizar la solución completa con visor visual de base de datos.** Contenerizar la API, PostgreSQL y un servicio visual para inspeccionar la base de datos. | Defensa oral E1+E2 (Docente) | Se agregaron `Dockerfile`, `.dockerignore` y `docker-compose.yml` separando `api`, `postgres` (con `healthcheck`), `pgadmin` (visor visual en puerto `5050` con volumen `pgadmin_data`) y `mailpit` (capturador de correo para pruebas). La API ejecuta `alembic upgrade head` y el seeder idempotente al iniciar. Commits: `7da07a7`, `e519800`, `0afe150`, `9ec1a31`, `9d42faf`, `0192c8d` (PR #35 y PR #37). | **Resuelta**. Verificado con `docker compose up -d --build`: arranque ordenado (`condition: service_healthy`), Swagger operativo en `:8000/docs` y pgAdmin operativo en `:5050`. |
+| **R-04 · Incorporar un `Makefile` para comandos frecuentes.** Facilitar la ejecución reproducible de comandos durante el desarrollo y la defensa para evitar olvidos en vivo. | Defensa oral E1+E2 (Docente) | Se agregó `Makefile` en la raíz del repositorio con objetivos para instalación (`install`), migraciones (`migrate`), seeder (`seed`), ejecución local (`run`), pruebas (`test`) y operación Docker (`up`, `down`, `restart`, `logs`, `ps`). Archivo: `Makefile`. | **Resuelta**. Objetivos verificados y listos para uso en desarrollo y presentación. |
+| **R-05 · Mejorar la presentación (diapositivas) y preparación de la defensa.** Corregir estructura, claridad y diseño del material de apoyo para la exposición. | Defensa oral E1+E2 (Docente) | Se planificó el rediseño completo del material de apoyo (máximo 15 diapositivas legibles con el orden recomendado en la sección 8 de la pauta) y ensayos cronometrados de 10 minutos con todos los integrantes operando la API. | **Pendiente**. Corresponde al Hito 5 (cierre previo a la defensa final y etiqueta `v1.0`). |
 
 ---
 
-## Verificación de Cumplimiento Acumulativo (Sección 5.1)
+## 2. Resumen de Cumplimiento Previo (Informe Oficial Entregas I y II · 29/30 · Nota 6.8)
 
-1. **Dominio y Contrato**: Se conservan intactas las 4 entidades de negocio originales (`Entrenador`, `Pokemon`, `CentroPokemon`, `RegistroMedico`) y se suman las entidades de soporte para seguridad (`Usuario`, `RefreshToken`, `PasswordResetToken`).
-2. **Persistencia Real**: Se conservan las migraciones versionadas con Alembic aplicadas de forma secuencial (`4629db295117` -> `b71d8e12a45c`).
-3. **Cero regresiones**: Ninguna regla de negocio existente (asignación de Pokémon, centros en servicio, eliminación restringida) ha sido alterada.
+Los siguientes criterios fueron aprobados íntegramente (3/3) en la entrega anterior y se mantienen operativos de forma acumulativa en la Entrega III (sección 5.1):
+
+| Criterio E1+E2 | Puntaje | Estado y continuidad en Entrega III |
+|---|---|---|
+| 1. Ejecución y endpoints (29 rutas en 4 recursos) | 3/3 | **Mantenido**. Se conservan los 4 recursos y todas sus rutas de negocio. |
+| 2. Modelo del dominio (4 entidades, 1:N, diagramas) | 3/3 | **Mantenido y ampliado**. Se sumaron `Usuario`, `RefreshToken` y `PasswordResetToken` y se actualizaron los diagramas en `docs/diagramas.md` (PR #36). |
+| 3. REST, DTO y OpenAPI | 3/3 | **Mantenido**. Se actualizará OpenAPI al integrar los endpoints de autenticación. |
+| 4. CRUD y persistencia SQLAlchemy | 3/3 | **Mantenido y migrado a PostgreSQL** (PR #37). |
+| 5. Validaciones (6 tipos) y reglas de negocio | 3/3 | **Mantenido** sin regresiones. |
+| 6. Respuestas y errores HTTP uniformes | 3/3 | **Mantenido**. |
+| 7. Filtro, orden y paginación en `pokemones` | 3/3 | **Mantenido**. |
+| 8. Arquitectura por capas | 3/3 | **Mantenido**. |
+| 9. Migraciones Alembic y seeder idempotente | 3/3 | **Mantenido y ampliado**. Migración `b71d8e12a45c` encadenada y seeder con 3 cuentas demo por rol (PR #36). |
+| 10. Pruebas iniciales | 2/3 | **Observado (ver R-01)**. Se subsanará con reportes de pruebas unitarias, integración y E2E + cobertura ≥85%. |
