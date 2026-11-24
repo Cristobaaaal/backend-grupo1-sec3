@@ -24,3 +24,4 @@ build/
 Reglas/
 .github/
 k8s/
+.DS_Store

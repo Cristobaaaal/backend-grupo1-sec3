@@ -7,23 +7,27 @@ load_dotenv()
 
 DATABASE_URL = os.getenv(
     "DATABASE_URL", "sqlite:///./pokemon.db"
-)  # Usamos sqlite y el archivo pokemon.db
+)  # Por defecto SQLite local; en Docker se usa PostgreSQL
+
+ES_SQLITE = DATABASE_URL.startswith("sqlite")  # Lo siguiente solo existe en SQLite
 
 engine = create_engine(  # Conexión con la db
     DATABASE_URL,
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False} if ES_SQLITE else {},
 )
 
 
-@event.listens_for(engine, "connect")  # Ejecuta esto cada vez que se abra una conexión
-def activar_claves_foraneas(
-    dbapi_connection, connection_record
-):  # Recibe la conexión abierta
-    cursor = dbapi_connection.cursor()  # Objeto para ejecutar SQL
-    try:
-        cursor.execute("PRAGMA foreign_keys=ON")  # Comprueba FK
-    finally:
-        cursor.close()
+if ES_SQLITE:  # PostgreSQL ya valida las claves foráneas por defecto
+
+    @event.listens_for(engine, "connect")  # Ejecuta esto cada vez que se abra una conexión
+    def activar_claves_foraneas(
+        dbapi_connection, connection_record
+    ):  # Recibe la conexión abierta
+        cursor = dbapi_connection.cursor()  # Objeto para ejecutar SQL
+        try:
+            cursor.execute("PRAGMA foreign_keys=ON")  # Comprueba FK
+        finally:
+            cursor.close()
 
 
 SessionLocal = sessionmaker(  # Sesiones para consultar, guardar y confirmar operaciones

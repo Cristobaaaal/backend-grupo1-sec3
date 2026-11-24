@@ -14,7 +14,8 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://pokemon_user:pokemon_pass@postgres:5432/pokemon_db}
+      # Se arma con las mismas credenciales que usa el servicio postgres
+      - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER:-pokemon_user}:${POSTGRES_PASSWORD:-pokemon_pass}@postgres:5432/${POSTGRES_DB:-pokemon_db}
       - JWT_SECRET=${JWT_SECRET:-cambia_esto_por_un_secreto_seguro}
       - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
@@ -43,7 +44,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pokemon_pass}
       POSTGRES_DB: ${POSTGRES_DB:-pokemon_db}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"  # Cambiar POSTGRES_PORT si el 5432 ya está ocupado
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
