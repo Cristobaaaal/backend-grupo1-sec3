@@ -54,7 +54,6 @@ class AuthService:
         except IntegrityError:
             self.usuario_repo.db.rollback()
 
-            # Controla registros simultáneos con el mismo correo.
             if self.usuario_repo.obtener_por_email(email):
                 raise ConflictError(
                     "Ya existe una cuenta con ese correo."
@@ -77,7 +76,6 @@ class AuthService:
         )
 
         if usuario is None:
-            # Ejecuta Argon2 también para correos inexistentes.
             hash_password(datos.password)
             raise self._credenciales_invalidas()
 
@@ -85,7 +83,6 @@ class AuthService:
         bloqueo = usuario.bloqueado_hasta
 
         if bloqueo is not None:
-            # La BD actual puede devolver fechas sin zona horaria.
             if bloqueo.tzinfo is None:
                 bloqueo = bloqueo.replace(tzinfo=timezone.utc)
 
@@ -101,7 +98,6 @@ class AuthService:
         )
 
         if not password_correcta:
-            # Un bloqueo vencido inicia un nuevo conteo.
             intentos = (
                 1
                 if bloqueo is not None
@@ -165,3 +161,18 @@ class AuthService:
         """Autentica al usuario y devuelve sus tokens."""
         usuario = self.autenticar(datos)
         return self._emitir_tokens(usuario)
+
+    def logout(self, refresh_token: str) -> None:
+        """Revoca la sesión asociada al refresh token."""
+        token_hash = hashlib.sha256(
+            refresh_token.encode("utf-8")
+        ).hexdigest()
+
+        registro = self.token_repo.obtener_refresh_token_por_hash(
+            token_hash
+        )
+
+        if registro is None or registro.revocado:
+            return
+
+        self.token_repo.revocar_refresh_token(registro.id)

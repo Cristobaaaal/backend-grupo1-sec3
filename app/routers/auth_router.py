@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Response, status
 
 from app.core.dependencies import get_auth_service, get_current_user
 from app.domain.models import Usuario
 from app.schemas.auth_schemas import (
     LoginRequest,
+    LogoutRequest,
     RegistroRequest,
     TokenResponse,
     UsuarioResponse,
@@ -96,3 +97,28 @@ def obtener_mi_usuario(
     usuario: Usuario = Depends(get_current_user),
 ):
     return usuario
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    summary="Cerrar sesión",
+    description=(
+        "Revoca el refresh token recibido. Repetir la solicitud "
+        "devuelve igualmente 204. El access token ya emitido "
+        "conserva su validez hasta su vencimiento."
+    ),
+    responses={
+        422: {
+            "model": ErrorResponse,
+            "description": "Los datos enviados no son válidos.",
+        },
+    },
+)
+def logout(
+    datos: LogoutRequest,
+    servicio: AuthService = Depends(get_auth_service),
+):
+    servicio.logout(datos.refresh_token)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
