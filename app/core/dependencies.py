@@ -1,4 +1,5 @@
 from uuid import UUID
+from datetime import datetime, timezone
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -100,7 +101,12 @@ def get_current_user(
 
     usuario = UsuarioRepository(db).obtener_por_id(usuario_id)
 
-    if usuario is None or not usuario.activo:
+    if (usuario is None or not usuario.activo
+            or usuario.token_version != contenido["ver"]
+            or not TokenRepository(db).sesion_vigente(
+                contenido["sid"], usuario_id,
+                datetime.now(timezone.utc).replace(tzinfo=None),
+            )):
         raise error
 
     return usuario

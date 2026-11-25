@@ -1,12 +1,16 @@
 import hashlib
 import secrets
+import logging
+import smtplib
+from uuid import UUID
+import jwt
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions import AuthenticationError, ConflictError
-from app.domain.models import RefreshToken, RolUsuario, Usuario
+from app.core.exceptions import APIException, AuthenticationError, ConflictError
+from app.domain.models import PasswordResetToken, RefreshToken, RolUsuario, Usuario
 from app.repositories.token_repository import TokenRepository
 from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.auth_schemas import (
@@ -15,7 +19,11 @@ from app.schemas.auth_schemas import (
     TokenResponse,
 )
 from app.security.passwords import hash_password, verify_password
-from app.security.tokens import crear_access_token
+from app.security.tokens import (
+    crear_access_token, crear_reset_token, decodificar_reset_token,
+    validar_configuracion_access,
+)
+from app.security.mail import enviar_recuperacion
 
 
 MAX_INTENTOS_FALLIDOS = 5
@@ -127,7 +135,8 @@ class AuthService:
 
     def _emitir_tokens(self, usuario: Usuario) -> TokenResponse:
         """Genera el JWT de acceso y guarda el hash del refresh token."""
-        access_token = crear_access_token(usuario.id)
+        familia_id = str(uuid4())
+        access_token = crear_access_token(usuario.id, familia_id, usuario.token_version)
         refresh_token = secrets.token_urlsafe(48)
 
         token_hash = hashlib.sha256(
@@ -143,9 +152,11 @@ class AuthService:
             expira_en=ahora + timedelta(days=DIAS_REFRESH_TOKEN),
             revocado=False,
             creado_en=ahora,
+            familia_id=familia_id,
         )
 
-        self.token_repo.guardar_refresh_token(registro)
+        if not self.token_repo.guardar_sesion(registro, usuario.token_version):
+            raise AuthenticationError()
 
         return TokenResponse(
             access_token=access_token,
@@ -163,11 +174,64 @@ class AuthService:
             refresh_token.encode("utf-8")
         ).hexdigest()
 
-        registro = self.token_repo.obtener_refresh_token_por_hash(
-            token_hash
+        self.token_repo.cerrar_sesion(token_hash)
+
+    def refresh(self, refresh_token: str) -> TokenResponse:
+        nuevo = secrets.token_urlsafe(48)
+        # Valida la configuración antes de consumir el token actual.
+        validar_configuracion_access()
+        resultado = self.token_repo.rotar(
+            self._hash(refresh_token), self._hash(nuevo), str(uuid4()), self._ahora(),
+        )
+        if resultado is None:
+            raise AuthenticationError("Refresh token inválido, vencido o revocado.")
+        usuario, familia_id = resultado
+        return TokenResponse(
+            access_token=crear_access_token(usuario.id, familia_id, usuario.token_version),
+            refresh_token=nuevo,
         )
 
-        if registro is None or registro.revocado:
-            return
+    @staticmethod
+    def _hash(token: str) -> str:
+        return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
-        self.token_repo.revocar_refresh_token(registro.id)
+    @staticmethod
+    def _ahora():
+        return datetime.now(timezone.utc).replace(tzinfo=None)
+
+    def solicitar_recuperacion(self, email: str, origen: str) -> None:
+        email = str(email).strip().lower()
+        ahora = self._ahora()
+        por_ip = self.token_repo.limitar(f"reset-ip:{origen}", 20, 900, ahora)
+        por_correo = self.token_repo.limitar(f"reset-email:{email}", 3, 900, ahora)
+        # Misma respuesta para cuentas inexistentes y solicitudes limitadas.
+        if not por_ip or not por_correo:
+            return
+        usuario = self.usuario_repo.obtener_por_email(email)
+        if usuario is None or not usuario.activo:
+            return
+        token = crear_reset_token(usuario.id, usuario.token_version)
+        contenido = decodificar_reset_token(token)
+        registro = PasswordResetToken(
+            id=UUID(contenido["jti"]), usuario_id=usuario.id,
+            token_hash=self._hash(token), creado_en=ahora,
+            expira_en=datetime.fromtimestamp(contenido["exp"], timezone.utc).replace(tzinfo=None),
+        )
+        if self.token_repo.preparar_recuperacion(registro, usuario.token_version):
+            try:
+                enviar_recuperacion(email, token)
+            except (OSError, smtplib.SMTPException):
+                logging.getLogger(__name__).error("No se pudo entregar el correo de recuperación.")
+
+    def restablecer(self, token: str, password: str, origen: str) -> None:
+        if not self.token_repo.limitar(f"reset-confirm:{origen}", 20, 900, self._ahora()):
+            raise APIException("Demasiados intentos. Intenta más tarde.", "RATE_LIMITED", 429)
+        try:
+            contenido = decodificar_reset_token(token)
+        except jwt.InvalidTokenError:
+            raise AuthenticationError("Token de recuperación inválido o vencido.") from None
+        if not self.token_repo.consumir_recuperacion(
+            self._hash(token), UUID(contenido["sub"]), contenido["ver"],
+            hash_password(password), self._ahora(),
+        ):
+            raise AuthenticationError("Token de recuperación inválido o vencido.")

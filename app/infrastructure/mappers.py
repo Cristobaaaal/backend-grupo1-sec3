@@ -75,6 +75,7 @@ def usuario_a_domain(modelo: UsuarioORM) -> Usuario:
         activo=modelo.activo,
         intentos_fallidos=modelo.intentos_fallidos,
         bloqueado_hasta=modelo.bloqueado_hasta,
+        token_version=modelo.token_version,
     )
 
 def refresh_token_a_domain(modelo: RefreshTokenORM) -> RefreshToken:
@@ -84,6 +85,7 @@ def refresh_token_a_domain(modelo: RefreshTokenORM) -> RefreshToken:
         usuario_id=UUID(modelo.usuario_id),
         expira_en=modelo.expira_en,
         revocado=modelo.revocado,
+        familia_id=modelo.familia_id,
         creado_en=modelo.creado_en,
     )
 
