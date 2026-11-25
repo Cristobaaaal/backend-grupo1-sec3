@@ -4,6 +4,14 @@ import pytest
 from sqlalchemy.orm import Session
 
 from tests.database import clear_test_data, migrated_postgres_database
+from tests.security_support import TEST_SECURITY_ENV
+
+
+@pytest.fixture(autouse=True)
+def entorno_de_seguridad(monkeypatch):
+    """Aísla claves y duración de JWT sin depender del .env de desarrollo."""
+    for variable, valor in TEST_SECURITY_ENV.items():
+        monkeypatch.setenv(variable, valor)
 
 
 @pytest.fixture(scope="session")

@@ -65,6 +65,30 @@ Para detener y retirar el contenedor de pruebas:
 docker compose -f tests/docker-compose.test.yml down
 ```
 
-La autenticación, los tres flujos E2E externos y el reporte de cobertura mínimo del 85% se incorporarán en los bloques siguientes. Los casos HTTP con `TestClient` se clasifican como integración.
+## Autenticación y seguridad
+
+Las pruebas de este bloque se adaptan al código integrado desde `main` en el commit `1c1fed5`.
+
+- `unit/test_security.py` verifica Argon2id, firma y claims de JWT, expiración, propósito, algoritmos permitidos, configuración y decisiones por rol. Usa las bibliotecas reales, sin BD ni HTTP.
+- `unit/test_auth_service.py` aísla repositorios, hashing y firma para comprobar las decisiones del servicio: alta, duplicados, bloqueo temporal, emisión y logout. El reloj se fija con `monkeypatch`.
+- `integration/test_auth_api.py` recorre la API real con PostgreSQL: alta sin escalamiento de privilegios, login y `/me`, errores genéricos, bloqueo persistido, JWT inválidos, diferencias 401/403 y logout. Comprueba que el refresh se almacene como hash y que logout revoque solo su sesión.
+- `integration/test_auth_persistence.py` comprueba unicidad, relaciones y persistencia de revocación y consumo. Verifica que las invalidaciones de un usuario no afecten a otro.
+
+Las fixtures de `tests/conftest.py` establecen un secreto y una duración exclusivos de pruebas antes de cada caso y restauran el entorno al terminar. `tests/security_support.py` contiene únicamente datos ficticios y utilidades para construir condiciones reproducibles. Las cuentas ADMIN/VETERINARIO se preparan por repositorio en la BD aislada; el registro público sigue creando ENTRENADOR.
+
+Comandos para ejecutar la parte de seguridad:
+
+```powershell
+python -m pytest tests/unit/test_security.py tests/unit/test_auth_service.py -m unit -v
+python -m pytest tests/integration/test_auth_api.py tests/integration/test_auth_persistence.py -m integration -v
+```
+
+### Requisitos de seguridad pendientes de implementación
+
+En la API revisada existen `/auth/register`, `/auth/login`, `/auth/me` y `/auth/logout`. Todavía no hay rutas ni servicios de renovación o recuperación de contraseña.
+
+Por ello, siguen pendientes la rotación del refresh y el rechazo de su reutilización, el flujo JWT de recuperación con validación y uso único, y la invalidación de access/refresh anteriores al restablecimiento. La prueba de la marca `usado` verifica persistencia: no demuestra por sí sola un flujo de recuperación ni el rechazo de un segundo uso por HTTP.
+
+Estos casos deben incorporarse cuando estén disponibles las operaciones reales. No se registran como casos aprobados ni omitidos. Los tres flujos E2E externos y la medición de cobertura mínima del 85% también siguen pendientes. Los casos HTTP con `TestClient` se clasifican como integración.
 
 Las dependencias versionadas y los comandos del README principal/CI corresponden a sus responsables; esta suite requiere `pytest` y usará `pytest-cov` para los reportes de cobertura.
