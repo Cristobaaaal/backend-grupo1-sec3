@@ -38,3 +38,16 @@ class RefreshRequest(BaseModel): #Recibe el token para renovar el acceso
 
 class LogoutRequest(BaseModel): #Recibe el token que se invalidará al cerrar sesión
     refresh_token: str = Field(..., min_length=1)
+
+
+class RecuperacionRequest(BaseModel):
+    email: EmailStr
+
+
+class RestablecerRequest(BaseModel):
+    token: str = Field(..., min_length=1, max_length=4096)
+    password: str = Field(..., min_length=12, max_length=128)
+
+
+class MensajeResponse(BaseModel):
+    message: str

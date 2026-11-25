@@ -25,7 +25,7 @@ class APIIntegracionTests(unittest.TestCase):
                 {
                     "JWT_SECRET": "clave-exclusiva-de-pruebas-aisladas-0123456789",
                     "JWT_ALGORITHM": "HS256",
-                    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+                    "ACCESS_TOKEN_EXPIRE_SECONDS": "30",
                 },
             )
         )
