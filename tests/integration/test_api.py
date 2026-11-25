@@ -2,12 +2,14 @@
 
 import unittest
 from datetime import date
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.infrastructure.database import get_db
+from app.infrastructure.models import UsuarioORM
 from app.main import app
 from tests.database import migrated_postgres_database
 
@@ -17,11 +19,43 @@ pytestmark = pytest.mark.integration
 
 class APIIntegracionTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(
+            patch.dict(
+                "os.environ",
+                {
+                    "JWT_SECRET": "clave-exclusiva-de-pruebas-aisladas-0123456789",
+                    "JWT_ALGORITHM": "HS256",
+                    "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+                },
+            )
+        )
         self.motor = self.enterContext(migrated_postgres_database())
         self.dependencias_anteriores = app.dependency_overrides.copy()
         self.addCleanup(self._restaurar_dependencias)
         app.dependency_overrides[get_db] = self._sesion
         self.cliente = self.enterContext(TestClient(app))
+        registro = self.cliente.post(
+            "/auth/register",
+            json={
+                "email": "admin.pruebas@example.com",
+                "nombre_completo": "Administrador Pruebas",
+                "password": "ClaveDePruebas123!",
+            },
+        )
+        self.assertEqual(registro.status_code, 201, registro.text)
+        with Session(self.motor) as db:
+            usuario = db.get(UsuarioORM, registro.json()["id"])
+            usuario.rol = "ADMIN"
+            db.commit()
+        login = self.cliente.post(
+            "/auth/login",
+            json={
+                "email": "admin.pruebas@example.com",
+                "password": "ClaveDePruebas123!",
+            },
+        )
+        self.assertEqual(login.status_code, 200, login.text)
+        self.cliente.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
 
     def _restaurar_dependencias(self):
         app.dependency_overrides.clear()
@@ -80,6 +114,22 @@ class APIIntegracionTests(unittest.TestCase):
         self.assertEqual(len(self.cliente.get("/entrenadores/").json()), 1)
         self.assertEqual(self.cliente.delete(ruta).status_code, 204)
         self.assertEqual(self.cliente.get(ruta).status_code, 404)
+
+    def test_ruta_protegida_sin_token_devuelve_401(self):
+        respuesta = self.cliente.get("/entrenadores/", headers={"Authorization": ""})
+        self.assertEqual(respuesta.status_code, 401)
+
+    def test_login_incorrecto_devuelve_error_uniforme(self):
+        respuesta = self.cliente.post(
+            "/auth/login",
+            json={
+                "email": "admin.pruebas@example.com",
+                "password": "UnaClaveIncorrecta123!",
+            },
+        )
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(respuesta.json()["error"]["code"], "AUTHENTICATION_ERROR")
+        self.assertEqual(respuesta.headers["WWW-Authenticate"], "Bearer")
 
     def test_datos_invalidos_devuelven_422_uniforme(self):
         respuesta = self.cliente.post(

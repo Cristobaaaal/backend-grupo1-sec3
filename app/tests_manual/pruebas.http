@@ -1,6 +1,6 @@
 # Pokemon Medical Center API - Pruebas manuales
-# Requiere la extensión "REST Client" en VS Code para ejecutar cada bloque con un click.
-# Si no tienes la extensión, este archivo igual sirve como documentación de las requests.
+# Requiere la extensión REST Client de VS Code.
+# Ejecutar los bloques de arriba hacia abajo.
 
 @baseUrl = http://127.0.0.1:8000
 
@@ -23,7 +23,7 @@ Content-Type: application/json
 ### Listar entrenadores
 GET {{baseUrl}}/entrenadores/
 
-### Obtener entrenador por id (usa el id que devolvió "crearEntrenador")
+### Obtener entrenador por id
 GET {{baseUrl}}/entrenadores/{{crearEntrenador.response.body.$.id}}
 
 ### Actualizar entrenador
@@ -37,9 +37,8 @@ Content-Type: application/json
   "medallas_obtenidas": 4
 }
 
-### Caso de error: obtener entrenador con id inexistente (debe dar 404)
+### Caso de error: obtener entrenador inexistente (debe dar 404)
 GET {{baseUrl}}/entrenadores/00000000-0000-0000-0000-000000000000
-
 
 ###############################################
 # POKEMONES
@@ -58,7 +57,7 @@ Content-Type: application/json
   "entrenador_id": "{{crearEntrenador.response.body.$.id}}"
 }
 
-### Caso de error: crear pokemon con entrenador_id inventado (debe dar 404, existencia relacionada)
+### Caso de error: entrenador_id inventado (debe dar 404)
 POST {{baseUrl}}/pokemones/
 Content-Type: application/json
 
@@ -70,7 +69,7 @@ Content-Type: application/json
   "entrenador_id": "00000000-0000-0000-0000-000000000000"
 }
 
-### Caso de error: crear pokemon con datos inválidos (debe dar 422)
+### Caso de error: datos inválidos (debe dar 422)
 POST {{baseUrl}}/pokemones/
 Content-Type: application/json
 
@@ -99,7 +98,6 @@ Content-Type: application/json
   "entrenador_id": "{{crearEntrenador.response.body.$.id}}"
 }
 
-
 ###############################################
 # CENTROS POKEMON
 ###############################################
@@ -116,7 +114,7 @@ Content-Type: application/json
   "en_servicio": true
 }
 
-### Crear centro pokemon FUERA de servicio (para probar la regla de negocio más abajo)
+### Crear centro pokemon FUERA de servicio
 # @name crearCentroFueraServicio
 POST {{baseUrl}}/centros-pokemon/
 Content-Type: application/json
@@ -148,7 +146,6 @@ Content-Type: application/json
   "en_servicio": true
 }
 
-
 ###############################################
 # REGISTROS MEDICOS
 ###############################################
@@ -167,7 +164,7 @@ Content-Type: application/json
   "costo": 5000
 }
 
-### Caso de error: registrar en un centro fuera de servicio (regla de negocio, debe dar 400)
+### Caso de error: centro fuera de servicio (debe dar 400)
 POST {{baseUrl}}/registros-medicos/
 Content-Type: application/json
 
@@ -180,7 +177,7 @@ Content-Type: application/json
   "costo": 5000
 }
 
-### Caso de error: fecha de ingreso futura (regla de negocio, debe dar 400)
+### Caso de error: fecha de ingreso futura (debe dar 400)
 POST {{baseUrl}}/registros-medicos/
 Content-Type: application/json
 
@@ -199,9 +196,8 @@ GET {{baseUrl}}/registros-medicos/
 ### Obtener registro por id
 GET {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
 
-### Caso de error: intentar eliminar un centro con paciente EN_TRATAMIENTO (regla de negocio, debe dar 400)
+### Caso de error: eliminar centro con paciente EN_TRATAMIENTO (debe dar 400)
 DELETE {{baseUrl}}/centros-pokemon/{{crearCentro.response.body.$.id}}
-
 
 ### Actualizar registro médico
 PUT {{baseUrl}}/registros-medicos/{{crearRegistro.response.body.$.id}}
@@ -224,4 +220,3 @@ DELETE {{baseUrl}}/pokemones/{{crearPokemon.response.body.$.id}}
 
 ### Eliminar entrenador
 DELETE {{baseUrl}}/entrenadores/{{crearEntrenador.response.body.$.id}}
-
