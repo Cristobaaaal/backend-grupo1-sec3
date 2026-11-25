@@ -2,6 +2,7 @@
 
 import tempfile
 import unittest
+from unittest.mock import patch
 from datetime import date
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.infrastructure.database import Base, get_db
 from app.main import app
+from app.infrastructure.models import UsuarioORM
 
 
 ID_INEXISTENTE = "00000000-0000-0000-0000-000000000000"
@@ -18,6 +20,13 @@ ID_INEXISTENTE = "00000000-0000-0000-0000-000000000000"
 
 class APIIntegracionTests(unittest.TestCase):
     def setUp(self):
+        self.entorno = patch.dict("os.environ", {
+            "JWT_SECRET": "clave-exclusiva-de-pruebas-aisladas-0123456789",
+            "JWT_ALGORITHM": "HS256",
+            "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
+        })
+        self.entorno.start()
+        self.addCleanup(self.entorno.stop)
         self.directorio = tempfile.TemporaryDirectory()
         self.url = f"sqlite:///{Path(self.directorio.name) / 'pruebas.db'}"
         self._abrir_motor()
@@ -26,6 +35,24 @@ class APIIntegracionTests(unittest.TestCase):
         Base.metadata.create_all(self.motor)
         app.dependency_overrides[get_db] = self._sesion
         self.cliente = TestClient(app)
+        registro = self.cliente.post("/auth/register", json={
+            "email": "admin.pruebas@example.com",
+            "nombre_completo": "Administrador Pruebas",
+            "password": "ClaveDePruebas123!",
+        })
+        self.assertEqual(registro.status_code, 201, registro.text)
+        with Session(self.motor) as db:
+            usuario = db.get(UsuarioORM, registro.json()["id"])
+            usuario.rol = "ADMIN"
+            db.commit()
+        login = self.cliente.post("/auth/login", json={
+            "email": "admin.pruebas@example.com",
+            "password": "ClaveDePruebas123!",
+        })
+        self.assertEqual(login.status_code, 200, login.text)
+        self.cliente.headers["Authorization"] = (
+            f"Bearer {login.json()['access_token']}"
+        )
 
     def tearDown(self):
         self.cliente.close()
@@ -88,6 +115,23 @@ class APIIntegracionTests(unittest.TestCase):
         self.assertEqual(len(self.cliente.get("/entrenadores/").json()), 1)
         self.assertEqual(self.cliente.delete(ruta).status_code, 204)
         self.assertEqual(self.cliente.get(ruta).status_code, 404)
+
+    def test_ruta_protegida_sin_token_devuelve_401(self):
+        respuesta = self.cliente.get(
+            "/entrenadores/", headers={"Authorization": ""}
+        )
+        self.assertEqual(respuesta.status_code, 401)
+
+    def test_login_incorrecto_devuelve_error_uniforme(self):
+        respuesta = self.cliente.post("/auth/login", json={
+            "email": "admin.pruebas@example.com",
+            "password": "UnaClaveIncorrecta123!",
+        })
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(
+            respuesta.json()["error"]["code"], "AUTHENTICATION_ERROR"
+        )
+        self.assertEqual(respuesta.headers["WWW-Authenticate"], "Bearer")
 
     def test_datos_invalidos_devuelven_422_uniforme(self):
         respuesta = self.cliente.post("/pokemones/", json={
