@@ -32,6 +32,7 @@ class Usuario:
     activo: bool = True
     intentos_fallidos: int = 0
     bloqueado_hasta: Optional[datetime] = None
+    token_version: int = 0
 
 @dataclass
 class RefreshToken:
@@ -41,6 +42,7 @@ class RefreshToken:
     expira_en: datetime
     revocado: bool = False
     creado_en: Optional[datetime] = None
+    familia_id: Optional[str] = None
 
 @dataclass
 class PasswordResetToken:

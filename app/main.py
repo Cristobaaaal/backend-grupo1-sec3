@@ -22,6 +22,14 @@ app = FastAPI(
 
 register_exception_handlers(app)
 
+
+@app.middleware("http")
+async def evitar_cache_autenticacion(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 errores_autenticacion = {
     401: {
         "model": ErrorResponse,

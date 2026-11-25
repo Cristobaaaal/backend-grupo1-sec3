@@ -97,6 +97,7 @@ class UsuarioORM(Base):
     activo = Column(Boolean, default=True, nullable=False)
     intentos_fallidos = Column(Integer, default=0, nullable=False)
     bloqueado_hasta = Column(DateTime, nullable=True)
+    token_version = Column(Integer, nullable=False, default=0, server_default="0")
 
     refresh_tokens = relationship(
         "RefreshTokenORM",
@@ -123,6 +124,7 @@ class RefreshTokenORM(Base):
     expira_en = Column(DateTime, nullable=False)
     revocado = Column(Boolean, default=False, nullable=False)
     creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
+    familia_id = Column(String(36), ForeignKey("auth_sessions.id"), nullable=True, index=True)
 
     usuario = relationship("UsuarioORM", back_populates="refresh_tokens")
 
@@ -142,3 +144,19 @@ class PasswordResetTokenORM(Base):
     creado_en = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     usuario = relationship("UsuarioORM", back_populates="password_reset_tokens")
+
+
+class AuthSessionORM(Base):
+    __tablename__ = "auth_sessions"
+
+    id = Column(String(36), primary_key=True)
+    usuario_id = Column(String(36), ForeignKey("usuarios.id", ondelete="CASCADE"), nullable=False, index=True)
+    revocada = Column(Boolean, nullable=False, default=False, server_default="0")
+    expira_en = Column(DateTime, nullable=False)
+
+
+class AuthRateLimitORM(Base):
+    __tablename__ = "auth_rate_limits"
+
+    clave = Column(String(64), primary_key=True)
+    intentos = Column(Integer, nullable=False, default=0)
