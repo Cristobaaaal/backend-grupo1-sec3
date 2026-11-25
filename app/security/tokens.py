@@ -5,16 +5,26 @@ from uuid import UUID, uuid4
 import jwt
 
 
-ALGORITHM = "HS256"
-ACCESS_TOKEN_MINUTES = 15
+def _obtener_algoritmo() -> str:
+    algoritmo = os.getenv("JWT_ALGORITHM", "HS256")
+    if algoritmo not in {"HS256", "HS384", "HS512"}:
+        raise RuntimeError("JWT_ALGORITHM debe ser HS256, HS384 o HS512.")
+    return algoritmo
+
+
+def _obtener_duracion() -> int:
+    minutos = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    if minutos <= 0:
+        raise RuntimeError("ACCESS_TOKEN_EXPIRE_MINUTES debe ser positivo.")
+    return minutos
 
 
 def _obtener_clave() -> str:
-    clave = os.getenv("JWT_SECRET_KEY")
+    clave = os.getenv("JWT_SECRET")
 
     if not clave or len(clave.encode("utf-8")) < 32:
         raise RuntimeError(
-            "Configura JWT_SECRET_KEY con al menos 32 bytes."
+            "Configura JWT_SECRET con al menos 32 bytes."
         )
 
     return clave
@@ -26,7 +36,7 @@ def crear_access_token(usuario_id: UUID) -> str:
     contenido = {
         "sub": str(usuario_id),
         "iat": ahora,
-        "exp": ahora + timedelta(minutes=ACCESS_TOKEN_MINUTES),
+        "exp": ahora + timedelta(minutes=_obtener_duracion()),
         "jti": str(uuid4()),
         "type": "access",
     }
@@ -34,7 +44,7 @@ def crear_access_token(usuario_id: UUID) -> str:
     return jwt.encode(
         contenido,
         _obtener_clave(),
-        algorithm=ALGORITHM,
+        algorithm=_obtener_algoritmo(),
     )
 
 
@@ -42,7 +52,7 @@ def decodificar_access_token(token: str) -> dict:
     contenido = jwt.decode(
         token,
         _obtener_clave(),
-        algorithms=[ALGORITHM],
+        algorithms=[_obtener_algoritmo()],
         options={
             "require": ["sub", "iat", "exp", "jti", "type"],
         },

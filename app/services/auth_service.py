@@ -3,10 +3,9 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 
-from app.core.exceptions import ConflictError
+from app.core.exceptions import AuthenticationError, ConflictError
 from app.domain.models import RefreshToken, RolUsuario, Usuario
 from app.repositories.token_repository import TokenRepository
 from app.repositories.usuario_repository import UsuarioRepository
@@ -61,13 +60,9 @@ class AuthService:
 
             raise
 
-    def _credenciales_invalidas(self) -> HTTPException:
+    def _credenciales_invalidas(self) -> AuthenticationError:
         """Construye una respuesta general de autenticación fallida."""
-        return HTTPException(
-            status_code=401,
-            detail="Credenciales inválidas o cuenta no disponible.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        return AuthenticationError()
 
     def autenticar(self, datos: LoginRequest) -> Usuario:
         """Verifica credenciales y controla intentos fallidos."""

@@ -6,6 +6,12 @@ class APIException(Exception):
         self.details = details or []
         super().__init__(self.message)
 
+class AuthenticationError(APIException):
+    def __init__(self, message: str = "Credenciales inválidas o cuenta no disponible."):
+        super().__init__(message, "AUTHENTICATION_ERROR", 401)
+        self.headers = {"WWW-Authenticate": "Bearer"}
+
+
 class NotFoundException(APIException):
     def __init__(self, entity:str, entity_id):
         super().__init__(
