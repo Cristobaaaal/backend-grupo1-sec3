@@ -118,6 +118,62 @@ El enlace del mensaje SMTP apunta al puerto real de esa API. El test verifica el
 
 Al finalizar, el cliente cierra sus conexiones, el proceso de Uvicorn recibe la señal de cierre por su entrada estándar, el capturador SMTP termina y se limpian los datos. `tests/reports/e2e/` conserva logs técnicos y JSON con PID de la API, PID del lanzador, puerto y código de salida. Los logs de acceso HTTP están desactivados y esa carpeta queda excluida de Git. Si la API no inicia o no cierra correctamente, la prueba falla.
 
-El comando general `python -m pytest tests` incluye los tres niveles. La medición y el refuerzo de cobertura mínima del 85% corresponden al bloque 5.
+El comando general `python -m pytest tests` incluye los tres niveles. Para medirlos y exigir el umbral de cobertura, usa el ejecutor siguiente.
 
-Las dependencias versionadas y los comandos del README principal/CI corresponden a sus responsables; esta suite requiere `pytest` y usará `pytest-cov` para los reportes de cobertura.
+## Cobertura y reportes reproducibles
+
+Desde la raíz del proyecto, prepara el entorno con las dependencias de la aplicación y las herramientas de pruebas:
+
+```powershell
+uv sync --frozen
+uv pip install -r tests/requirements.txt
+```
+
+Activa `.venv` antes de los siguientes comandos, o reemplaza `python` por `.\.venv\Scripts\python.exe` en PowerShell. Las versiones de `tests/requirements.txt` son las usadas para verificar la suite; no modifican los manifiestos de la aplicación.
+
+Para verificar toda la entrega, con PostgreSQL de pruebas iniciado:
+
+```powershell
+docker compose -f tests/docker-compose.test.yml up -d --wait
+python tests/run_checks.py --level all
+```
+
+`tests/.coveragerc` mide **todo el paquete `app`**, incluyendo el seeder, con líneas y ramas. No excluye servicios, repositorios, routers ni casos de error. El comando falla si hay pruebas fallidas o si la cobertura conjunta es menor al **85%**; devuelve el código de salida de pytest para que CI pueda exigirlo.
+
+`pytest-cov` mide el proceso de pytest. Cuando la medición está activa, `e2e/conftest.py` también inicia la API mediante `coverage run` con la misma configuración y un archivo paralelo. Cada API cierra normalmente y guarda sus datos antes de que pytest-cov los combine. El contexto `e2e-api` permite identificar en el JSON las líneas ejecutadas en ese proceso externo. Sin `--cov`, los E2E siguen arrancando la API directamente y no necesitan importar coverage.
+
+Cada ejecución reemplaza la medición anterior de su nivel y escribe en `tests/reports/<nivel>/`:
+
+| Archivo | Evidencia |
+|---|---|
+| `junit.xml` | Casos, resultados y tiempos para CI. |
+| `coverage.xml` | Cobertura en formato Cobertura XML. |
+| `coverage.json` | Líneas, ramas faltantes y contextos de ejecución. |
+| `html/index.html` | Reporte navegable por archivo y línea. |
+| `.coverage` | Datos combinados para volver a generar reportes. |
+
+La caché de pytest se guarda en esa misma carpeta. Los reportes y logs quedan excluidos de Git. Se conserva el archivo de datos de cada nivel por separado, por lo que correr solo unitarias no sobrescribe la evidencia de la suite completa.
+
+Para obtener evidencia independiente por nivel:
+
+```powershell
+python tests/run_checks.py --level unit
+python tests/run_checks.py --level integration
+python tests/run_checks.py --level e2e
+```
+
+Las unitarias no necesitan PostgreSQL. Integración y E2E requieren la BD de pruebas; una BD detenida provoca un fallo, no un skip. En estos tres comandos el porcentaje se informa sin exigir 85%, porque cada nivel cubre una parte distinta de `app`; el umbral obligatorio se aplica a `--level all` (también es el nivel predeterminado). Los porcentajes de niveles distintos no se suman ni se promedian.
+
+El bloque final refuerza dos áreas de la aplicación:
+
+- `integration/test_seed.py`: carga real con Alembic/PostgreSQL, repetición sin duplicados, conservación de cuentas modificadas y rollback de una carga conflictiva.
+- `unit/test_mail.py` y las nuevas regresiones de `unit/test_auth_service.py`: configuración SMTP/TLS, orden de autenticación, conservación del token en el fragmento, fallos del transporte sin filtrar secretos y rechazo de un enlace cuya persistencia falló.
+
+Para el lint y formato de esta parte:
+
+```powershell
+python -m ruff check tests --select E4,E7,E9,F,I,UP
+python -m ruff format --check tests
+```
+
+El responsable de CI puede instalar `tests/requirements.txt`, iniciar el PostgreSQL aislado y ejecutar `python tests/run_checks.py --level all`; los artefactos a publicar son `tests/reports/all/`. El README principal y el workflow permanecen a cargo de sus responsables.

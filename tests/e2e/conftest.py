@@ -63,7 +63,7 @@ def detener_api(proceso):
 
 
 @pytest.fixture
-def e2e_app(clean_database):
+def e2e_app(clean_database, request):
     """Arranca Uvicorn sin overrides de dependencias y usa HTTPX por TCP real."""
     reportes = PROJECT_ROOT / "tests" / "reports" / "e2e"
     reportes.mkdir(parents=True, exist_ok=True)
@@ -92,9 +92,37 @@ def e2e_app(clean_database):
                 "SMTP_PASSWORD": "",
             }
         )
+        comando = [sys.executable, "-m", "tests.e2e.run_api", str(estado)]
+        if request.config.getoption(
+            "cov_source", default=None
+        ) and not request.config.getoption("no_cov", default=False):
+            # pytest-cov combina los archivos paralelos al cerrar la sesión.
+            # La API debe medir sus propias peticiones en el proceso hijo.
+            from coverage import Coverage
+
+            medicion = Coverage.current()
+            assert medicion is not None
+            entorno["COVERAGE_FILE"] = str(PROJECT_ROOT / medicion.config.data_file)
+            comando = [
+                sys.executable,
+                "-m",
+                "coverage",
+                "run",
+                "--parallel-mode",
+                "--context=e2e-api",
+            ]
+            if medicion.config.config_file:
+                comando.extend(
+                    ["--rcfile", str(PROJECT_ROOT / medicion.config.config_file)]
+                )
+            if medicion.config.source:
+                comando.extend(["--source", ",".join(medicion.config.source)])
+            if medicion.config.branch:
+                comando.append("--branch")
+            comando.extend(["-m", "tests.e2e.run_api", str(estado)])
         with log.open("wb") as salida:
             proceso = subprocess.Popen(
-                [sys.executable, "-m", "tests.e2e.run_api", str(estado)],
+                comando,
                 cwd=PROJECT_ROOT,
                 env=entorno,
                 stdin=subprocess.PIPE,

@@ -1,6 +1,7 @@
 """Decisiones de autenticación con repositorios dobles y reloj controlado."""
 
 import hashlib
+import smtplib
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, create_autospec
@@ -231,3 +232,58 @@ def test_logout_es_idempotente_para_tokens_no_activos(caso_auth, existe):
     caso_auth.tokens.cerrar_sesion.assert_called_once_with(
         hashlib.sha256(b"refresh-de-prueba").hexdigest()
     )
+
+
+@pytest.fixture
+def recuperacion_preparada(caso_auth, monkeypatch):
+    """Aísla firma y envío para comprobar decisiones y privacidad del servicio."""
+    token = "reset-token-privado"
+    monkeypatch.setattr(auth_service, "crear_reset_token", Mock(return_value=token))
+    monkeypatch.setattr(
+        auth_service,
+        "decodificar_reset_token",
+        Mock(
+            return_value={
+                "jti": str(UUID(int=9)),
+                "exp": int((caso_auth.ahora + timedelta(minutes=15)).timestamp()),
+            }
+        ),
+    )
+    correo = Mock()
+    monkeypatch.setattr(auth_service, "enviar_recuperacion", correo)
+    caso_auth.tokens.limitar.return_value = True
+    caso_auth.tokens.preparar_recuperacion.return_value = True
+    return SimpleNamespace(caso=caso_auth, correo=correo, token=token)
+
+
+@pytest.mark.parametrize("error", [OSError, smtplib.SMTPException])
+def test_fallo_smtp_conserva_respuesta_generica_y_no_registra_secretos(
+    recuperacion_preparada, caplog, error
+):
+    """Ni el enlace ni el destinatario se filtran por el error del transporte."""
+    caso = recuperacion_preparada.caso
+    mensaje_sensible = f"{caso.usuario.email} {recuperacion_preparada.token}"
+    recuperacion_preparada.correo.side_effect = error(mensaje_sensible)
+
+    assert caso.servicio.solicitar_recuperacion(caso.usuario.email, "127.0.0.1") is None
+
+    caso.tokens.preparar_recuperacion.assert_called_once()
+    recuperacion_preparada.correo.assert_called_once_with(
+        caso.usuario.email, recuperacion_preparada.token
+    )
+    assert "No se pudo entregar el correo de recuperación." in caplog.text
+    assert caso.usuario.email not in caplog.text
+    assert recuperacion_preparada.token not in caplog.text
+
+
+def test_recuperacion_rechazada_al_persistir_no_envia_un_enlace_invalido(
+    recuperacion_preparada,
+):
+    """Si cambia el estado de la cuenta entre lectura y guardado, no envía correo."""
+    caso = recuperacion_preparada.caso
+    caso.tokens.preparar_recuperacion.return_value = False
+
+    assert caso.servicio.solicitar_recuperacion(caso.usuario.email, "127.0.0.1") is None
+
+    caso.tokens.preparar_recuperacion.assert_called_once()
+    recuperacion_preparada.correo.assert_not_called()
