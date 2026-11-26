@@ -94,6 +94,30 @@ python -m pytest tests/integration/test_auth_flujos.py tests/integration/test_re
 
 La suite cubre las operaciones reales `/auth/refresh`, `/auth/forgot-password` y `/auth/reset-password`: rotación y rechazo de reutilización, revocación de la familia, solicitud genérica y límites persistentes, entrega del enlace por SMTP, rechazo de JWT inválidos, nueva contraseña Argon2, consumo único e invalidación de permisos y sesiones anteriores. También comprueba que un ID ajeno enviado en la solicitud no cambie la cuenta objetivo y que las sesiones de otra cuenta sigan funcionando.
 
-Los tres flujos E2E con cliente HTTP externo y la medición de cobertura mínima del 85% corresponden a los bloques siguientes. Los casos actuales con `TestClient` se clasifican como integración.
+Los casos con `TestClient` se clasifican como integración. Los E2E externos se ejecutan en el nivel siguiente.
+
+## Ejecutar los tres E2E por HTTP externo
+
+Con PostgreSQL de pruebas iniciado:
+
+```powershell
+python -m pytest tests/e2e -m e2e -v --junitxml=tests/reports/e2e.xml
+```
+
+| Escenario | Recorrido y comprobaciones |
+|---|---|
+| Acceso y negocio | Registro, login, creación y consulta de entrenador/Pokémon, rechazo de asignación repetida, renovación, logout y renovación posterior rechazada. |
+| Recuperación | Solicitud, recepción por SMTP, apertura del enlace real, restablecimiento, segundo uso y contraseña anterior rechazados, sesiones previas invalidadas y login con la nueva clave. |
+| Permisos | La misma creación de centro devuelve 401 sin credencial, 403 con ENTRENADOR y 201 con ADMIN; la consulta confirma un único centro persistido. |
+
+`e2e/conftest.py` arranca una instancia de Uvicorn en otro proceso para cada caso. `e2e/run_api.py` carga `app.main:app` y usa las dependencias normales de la aplicación. HTTPX realiza peticiones por TCP a `127.0.0.1`; los puertos HTTP y SMTP se asignan automáticamente.
+
+La API se conecta mediante `DATABASE_URL` y `PGOPTIONS` al schema aislado, preparado con Alembic y vacío al comenzar cada caso. El secreto JWT, las duraciones y el correo usan configuración exclusiva de pruebas. Para el escenario de permisos, la fixture prepara únicamente la cuenta ADMIN con repositorio y Argon2 reales; la cuenta ENTRENADOR se registra por HTTP.
+
+El enlace del mensaje SMTP apunta al puerto real de esa API. El test verifica el destinatario, extrae el JWT del fragmento y abre el formulario antes de restablecer. No requiere iniciar manualmente otra API ni otro servicio de correo.
+
+Al finalizar, el cliente cierra sus conexiones, el proceso de Uvicorn recibe la señal de cierre por su entrada estándar, el capturador SMTP termina y se limpian los datos. `tests/reports/e2e/` conserva logs técnicos y JSON con PID de la API, PID del lanzador, puerto y código de salida. Los logs de acceso HTTP están desactivados y esa carpeta queda excluida de Git. Si la API no inicia o no cierra correctamente, la prueba falla.
+
+El comando general `python -m pytest tests` incluye los tres niveles. La medición y el refuerzo de cobertura mínima del 85% corresponden al bloque 5.
 
 Las dependencias versionadas y los comandos del README principal/CI corresponden a sus responsables; esta suite requiere `pytest` y usará `pytest-cov` para los reportes de cobertura.

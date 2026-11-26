@@ -53,8 +53,8 @@ def smtp_capture():
                 raise RuntimeError("El capturador SMTP no terminó correctamente.")
 
 
-def token_del_correo(server, destinatario):
-    """Obtiene el JWT del fragmento del enlace realmente recibido por SMTP."""
+def enlace_del_correo(server, destinatario):
+    """Obtiene el enlace del mensaje realmente recibido por el destinatario."""
     for raw in reversed(server.mensajes):
         mensaje = BytesParser(policy=policy.default).parsebytes(raw)
         destinos = {
@@ -66,9 +66,14 @@ def token_del_correo(server, destinatario):
         assert cuerpo is not None, "El correo de recuperación no contiene texto."
         enlace = re.search(r"https?://[^\s]+", cuerpo.get_content())
         assert enlace is not None, "El correo no contiene un enlace de recuperación."
-        url = urlsplit(enlace.group(0))
-        assert "token" not in parse_qs(url.query)
-        tokens = parse_qs(url.fragment).get("token", [])
-        assert len(tokens) == 1, "El enlace no contiene un único token."
-        return tokens[0]
+        return enlace.group(0)
     raise AssertionError("No llegó un correo al destinatario de prueba.")
+
+
+def token_del_correo(server, destinatario):
+    """Extrae un único JWT del fragmento del enlace recibido, nunca de la query."""
+    url = urlsplit(enlace_del_correo(server, destinatario))
+    assert "token" not in parse_qs(url.query)
+    tokens = parse_qs(url.fragment).get("token", [])
+    assert len(tokens) == 1, "El enlace no contiene un único token."
+    return tokens[0]
