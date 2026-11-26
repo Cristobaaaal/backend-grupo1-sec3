@@ -17,7 +17,6 @@ from app.security.tokens import crear_access_token, decodificar_access_token
 from tests.security_support import (
     TEST_JWT_SECRET,
     TEST_PASSWORD,
-    access_payload,
     alterar_firma,
 )
 
@@ -220,10 +219,17 @@ def test_rutas_privadas_rechazan_ausencia_de_token(api_client, ruta):
 @pytest.mark.parametrize(
     "caso", ["manipulado", "vencido", "otro-proposito", "otro-algoritmo", "ilegible"]
 )
-def test_me_rechaza_jwt_invalido_con_401(api_client, crear_usuario, caso):
+def test_me_rechaza_jwt_invalido_con_401(api_client, crear_usuario, login, caso):
     """La validación JWT real se traduce en un rechazo HTTP uniforme."""
     usuario = crear_usuario()
-    claims = access_payload(sub=str(usuario.id))
+    validos = login(usuario)
+    assert (
+        api_client.get(
+            "/auth/me", headers={"Authorization": f"Bearer {validos['access_token']}"}
+        ).status_code
+        == 200
+    )
+    claims = decodificar_access_token(validos["access_token"])
     algoritmo = "HS256"
     if caso == "vencido":
         claims.update(iat=datetime(2000, 1, 1, tzinfo=UTC), exp=1)
@@ -246,14 +252,24 @@ def test_me_rechaza_jwt_invalido_con_401(api_client, crear_usuario, caso):
 
 @pytest.mark.parametrize("caso", ["usuario-inexistente", "usuario-inactivo"])
 def test_firma_valida_no_habilita_una_identidad_inexistente_o_inactiva(
-    api_client, crear_usuario, caso
+    api_client, db_session, crear_usuario, login, caso
 ):
     """El usuario se vuelve a consultar en BD después de validar la firma."""
     if caso == "usuario-inactivo":
-        usuario_id = crear_usuario(activo=False).id
+        usuario = crear_usuario()
+        tokens = login(usuario)
+        token = tokens["access_token"]
+        assert (
+            api_client.get(
+                "/auth/me", headers={"Authorization": f"Bearer {token}"}
+            ).status_code
+            == 200
+        )
+        db_session.get(UsuarioORM, str(usuario.id)).activo = False
+        db_session.commit()
     else:
         usuario_id = UUID(int=999)
-    token = crear_access_token(usuario_id)
+        token = crear_access_token(usuario_id, str(UUID(int=8)), 0)
 
     respuesta = api_client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
 
@@ -317,10 +333,10 @@ def test_veterinario_puede_crear_un_centro(
     assert guardado.capacidad_maxima == 10
 
 
-def test_logout_revoca_solo_su_refresh_y_es_idempotente(
+def test_logout_revoca_su_familia_y_es_idempotente(
     api_client, db_session, crear_usuario, login
 ):
-    """Logout persiste revocación; conserva otra sesión y la ventana del access."""
+    """Logout revoca access y refresh de su familia, conservando otra sesión."""
     usuario = crear_usuario()
     primera = login(usuario)
     segunda = login(usuario)
@@ -339,4 +355,4 @@ def test_logout_revoca_solo_su_refresh_y_es_idempotente(
     respuesta = api_client.get(
         "/auth/me", headers={"Authorization": f"Bearer {primera['access_token']}"}
     )
-    assert respuesta.status_code == 200
+    assert respuesta.status_code == 401

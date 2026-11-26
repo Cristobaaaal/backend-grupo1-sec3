@@ -47,7 +47,7 @@ La URL predeterminada es `postgresql+psycopg2://pokemon_test:pokemon_test@127.0.
 
 `tests/database.py` crea un schema con UUID, aplica `alembic upgrade head` en un proceso separado y dirige las conexiones a ese schema. Al finalizar lo elimina. Las fixtures de pytest limpian sus tablas antes y después de cada caso, conservando `alembic_version`. No se usa `Base.metadata.create_all` ni se sustituyen los repositorios por mocks.
 
-- `integration/test_api.py` conserva las nueve regresiones HTTP anteriores con PostgreSQL y migraciones. Cada caso tiene su propio schema y verifica contrato HTTP, CRUD, reglas y persistencia. Solo se configura la dependencia de sesión para apuntar a la BD de prueba; servicios y repositorios son reales.
+- `integration/test_api.py` conserva las regresiones HTTP de negocio con PostgreSQL y migraciones, incluyendo la preparación de usuarios autenticados. Cada caso tiene su propio schema y verifica contrato HTTP, CRUD, reglas y persistencia. Solo se configura la dependencia de sesión para apuntar a la BD de prueba; servicios y repositorios son reales.
 - `integration/test_repositories.py` verifica revisión de Alembic, persistencia entre sesiones, claves primarias y foráneas, rollback, historial médico, orden estable de paginación y búsqueda de centros.
 - `tests/conftest.py` prepara la BD y las sesiones bajo demanda. Ejecutar únicamente las pruebas unitarias no requiere iniciar PostgreSQL.
 
@@ -67,28 +67,33 @@ docker compose -f tests/docker-compose.test.yml down
 
 ## Autenticación y seguridad
 
-Las pruebas de este bloque se adaptan al código integrado desde `main` en el commit `1c1fed5`.
+Las pruebas de este bloque se adaptan a la autenticación integrada desde `main`, incluida la renovación y recuperación del commit `83d3b94`.
 
 - `unit/test_security.py` verifica Argon2id, firma y claims de JWT, expiración, propósito, algoritmos permitidos, configuración y decisiones por rol. Usa las bibliotecas reales, sin BD ni HTTP.
 - `unit/test_auth_service.py` aísla repositorios, hashing y firma para comprobar las decisiones del servicio: alta, duplicados, bloqueo temporal, emisión y logout. El reloj se fija con `monkeypatch`.
 - `integration/test_auth_api.py` recorre la API real con PostgreSQL: alta sin escalamiento de privilegios, login y `/me`, errores genéricos, bloqueo persistido, JWT inválidos, diferencias 401/403 y logout. Comprueba que el refresh se almacene como hash y que logout revoque solo su sesión.
 - `integration/test_auth_persistence.py` comprueba unicidad, relaciones y persistencia de revocación y consumo. Verifica que las invalidaciones de un usuario no afecten a otro.
+- `unit/test_reset_tokens.py` verifica el propósito exclusivo del JWT de recuperación, sus claims obligatorios, versión e identificadores, y los límites de la nueva contraseña.
+- `integration/test_auth_flujos.py` conserva las once regresiones incorporadas por Simón, adaptadas a PostgreSQL con Alembic y al capturador SMTP compartido. Incluye reutilización, revocación, recuperación y solicitudes simultáneas. Se clasifican como integración porque usan `TestClient`.
+- `integration/test_refresh_reset.py` verifica la caducidad máxima de la familia, expiración persistida, logout después de rotar, versiones de sesión, destinatario del restablecimiento y conservación de otras cuentas y sesiones.
 
-Las fixtures de `tests/conftest.py` establecen un secreto y una duración exclusivos de pruebas antes de cada caso y restauran el entorno al terminar. `tests/security_support.py` contiene únicamente datos ficticios y utilidades para construir condiciones reproducibles. Las cuentas ADMIN/VETERINARIO se preparan por repositorio en la BD aislada; el registro público sigue creando ENTRENADOR.
+Las fixtures de `tests/conftest.py` establecen un secreto y duraciones exclusivas de pruebas antes de cada caso y restauran el entorno al terminar. Se usa `ACCESS_TOKEN_EXPIRE_SECONDS=900` para los casos generales y `PASSWORD_RESET_EXPIRE_SECONDS=900`; la regresión del valor predeterminado comprueba explícitamente 30 segundos. `tests/security_support.py` contiene únicamente datos ficticios y utilidades para construir condiciones reproducibles. Las cuentas ADMIN/VETERINARIO se preparan por repositorio en la BD aislada; el registro público sigue creando ENTRENADOR.
+
+`tests/smtp_capture.py` reutiliza el capturador incorporado por Simón y recibe mensajes reales por TCP/SMTP en un puerto libre de `127.0.0.1`. Las fixtures redirigen el envío a ese puerto, sin usar credenciales reales ni reenviar mensajes. El JWT se extrae del correo recibido. Servidor, hilo, mensajes y variables se limpian al finalizar; no hace falta un servicio de correo externo para estas pruebas de integración.
+
+Los rechazos de JWT se comprueban partiendo de una sesión que primero permite `/auth/me`. Luego se cambia la condición evaluada, para no confundir un rechazo criptográfico con una familia inexistente. Las caducidades se preparan con fechas y estados de prueba; no se espera manualmente a que venza un token.
 
 Comandos para ejecutar la parte de seguridad:
 
 ```powershell
 python -m pytest tests/unit/test_security.py tests/unit/test_auth_service.py -m unit -v
 python -m pytest tests/integration/test_auth_api.py tests/integration/test_auth_persistence.py -m integration -v
+python -m pytest tests/unit/test_reset_tokens.py -m unit -v
+python -m pytest tests/integration/test_auth_flujos.py tests/integration/test_refresh_reset.py -m integration -v
 ```
 
-### Requisitos de seguridad pendientes de implementación
+La suite cubre las operaciones reales `/auth/refresh`, `/auth/forgot-password` y `/auth/reset-password`: rotación y rechazo de reutilización, revocación de la familia, solicitud genérica y límites persistentes, entrega del enlace por SMTP, rechazo de JWT inválidos, nueva contraseña Argon2, consumo único e invalidación de permisos y sesiones anteriores. También comprueba que un ID ajeno enviado en la solicitud no cambie la cuenta objetivo y que las sesiones de otra cuenta sigan funcionando.
 
-En la API revisada existen `/auth/register`, `/auth/login`, `/auth/me` y `/auth/logout`. Todavía no hay rutas ni servicios de renovación o recuperación de contraseña.
-
-Por ello, siguen pendientes la rotación del refresh y el rechazo de su reutilización, el flujo JWT de recuperación con validación y uso único, y la invalidación de access/refresh anteriores al restablecimiento. La prueba de la marca `usado` verifica persistencia: no demuestra por sí sola un flujo de recuperación ni el rechazo de un segundo uso por HTTP.
-
-Estos casos deben incorporarse cuando estén disponibles las operaciones reales. No se registran como casos aprobados ni omitidos. Los tres flujos E2E externos y la medición de cobertura mínima del 85% también siguen pendientes. Los casos HTTP con `TestClient` se clasifican como integración.
+Los tres flujos E2E con cliente HTTP externo y la medición de cobertura mínima del 85% corresponden a los bloques siguientes. Los casos actuales con `TestClient` se clasifican como integración.
 
 Las dependencias versionadas y los comandos del README principal/CI corresponden a sus responsables; esta suite requiere `pytest` y usará `pytest-cov` para los reportes de cobertura.

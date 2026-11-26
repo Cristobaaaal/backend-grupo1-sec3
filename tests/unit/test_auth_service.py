@@ -35,6 +35,7 @@ def caso_auth(monkeypatch):
     )
     usuarios.obtener_por_email.return_value = usuario
     tokens.obtener_refresh_token_por_hash.return_value = None
+    tokens.guardar_sesion.return_value = True
     ahora = datetime(2026, 1, 15, 12, 0, tzinfo=UTC)
     reloj = Mock(wraps=datetime)
     reloj.now.return_value = ahora
@@ -95,8 +96,12 @@ def test_login_correcto_limpia_intentos_y_persiste_solo_hash_del_refresh(caso_au
     caso_auth.usuarios.actualizar_intentos_fallidos.assert_called_once_with(
         caso_auth.usuario.id, 0, None
     )
-    caso_auth.emitir.assert_called_once_with(caso_auth.usuario.id)
-    registro = caso_auth.tokens.guardar_refresh_token.call_args.args[0]
+    registro, version = caso_auth.tokens.guardar_sesion.call_args.args
+    caso_auth.emitir.assert_called_once_with(
+        caso_auth.usuario.id, registro.familia_id, caso_auth.usuario.token_version
+    )
+    assert UUID(registro.familia_id).version == 4
+    assert version == caso_auth.usuario.token_version
     assert registro.usuario_id == caso_auth.usuario.id
     assert (
         registro.token_hash
@@ -122,7 +127,7 @@ def test_quinto_intento_incorrecto_bloquea_sin_emitir_tokens(caso_auth):
         (caso_auth.ahora + timedelta(minutes=15)).replace(tzinfo=None),
     )
     caso_auth.emitir.assert_not_called()
-    caso_auth.tokens.guardar_refresh_token.assert_not_called()
+    caso_auth.tokens.guardar_sesion.assert_not_called()
 
 
 def test_usuario_inexistente_no_genera_una_sesion(caso_auth):
@@ -135,7 +140,7 @@ def test_usuario_inexistente_no_genera_una_sesion(caso_auth):
     assert error.value.code == "AUTHENTICATION_ERROR"
     caso_auth.usuarios.actualizar_intentos_fallidos.assert_not_called()
     caso_auth.emitir.assert_not_called()
-    caso_auth.tokens.guardar_refresh_token.assert_not_called()
+    caso_auth.tokens.guardar_sesion.assert_not_called()
 
 
 @pytest.mark.parametrize("estado", ["inactivo", "bloqueado"])
@@ -153,7 +158,7 @@ def test_cuenta_no_disponible_rechaza_login_antes_de_verificar_password(
 
     caso_auth.verificar.assert_not_called()
     caso_auth.emitir.assert_not_called()
-    caso_auth.tokens.guardar_refresh_token.assert_not_called()
+    caso_auth.tokens.guardar_sesion.assert_not_called()
 
 
 def test_primer_fallo_tras_caducar_bloqueo_reinicia_el_contador(caso_auth):
@@ -170,23 +175,48 @@ def test_primer_fallo_tras_caducar_bloqueo_reinicia_el_contador(caso_auth):
     )
 
 
-def test_logout_revoca_la_sesion_encontrada_por_hash(caso_auth):
-    """El cierre de sesión busca el digest del refresh y revoca ese registro."""
+def test_login_rechaza_si_la_version_cambio_antes_de_guardar_sesion(caso_auth):
+    """El servicio no entrega una sesión si el guardado atómico la rechaza."""
+    caso_auth.tokens.guardar_sesion.return_value = False
+
+    with pytest.raises(AuthenticationError):
+        caso_auth.servicio.login(caso_auth.credenciales)
+
+    caso_auth.tokens.guardar_sesion.assert_called_once()
+
+
+def test_refresh_rechazado_no_emite_access(caso_auth):
+    """No emite tokens si la rotación persistente rechaza el refresh."""
+    caso_auth.tokens.rotar.return_value = None
+
+    with pytest.raises(AuthenticationError):
+        caso_auth.servicio.refresh("refresh-invalido")
+
+    caso_auth.emitir.assert_not_called()
+
+
+def test_configuracion_invalida_no_consume_el_refresh(caso_auth, monkeypatch):
+    """Una clave mal configurada se detecta antes de consumir el token vigente."""
+    monkeypatch.setenv("JWT_SECRET", "corta")
+
+    with pytest.raises(RuntimeError):
+        caso_auth.servicio.refresh("refresh-vigente")
+
+    caso_auth.tokens.rotar.assert_not_called()
+
+
+def test_logout_delega_la_revocacion_por_hash(caso_auth):
+    """Entrega el digest al cierre transaccional de la familia de sesiones."""
     token_hash = hashlib.sha256(b"refresh-de-prueba").hexdigest()
-    registro = RefreshToken(
-        UUID(int=2), token_hash, caso_auth.usuario.id, caso_auth.ahora
-    )
-    caso_auth.tokens.obtener_refresh_token_por_hash.return_value = registro
 
     caso_auth.servicio.logout("refresh-de-prueba")
 
-    caso_auth.tokens.obtener_refresh_token_por_hash.assert_called_once_with(token_hash)
-    caso_auth.tokens.revocar_refresh_token.assert_called_once_with(registro.id)
+    caso_auth.tokens.cerrar_sesion.assert_called_once_with(token_hash)
 
 
 @pytest.mark.parametrize("existe", [False, True], ids=["desconocido", "ya-revocado"])
 def test_logout_es_idempotente_para_tokens_no_activos(caso_auth, existe):
-    """Repetir logout o enviar un token desconocido no intenta revocar otra sesión."""
+    """El cierre se delega por hash también si el token es desconocido o revocado."""
     if existe:
         caso_auth.tokens.obtener_refresh_token_por_hash.return_value = RefreshToken(
             UUID(int=2),
@@ -198,4 +228,6 @@ def test_logout_es_idempotente_para_tokens_no_activos(caso_auth, existe):
 
     assert caso_auth.servicio.logout("refresh-de-prueba") is None
 
-    caso_auth.tokens.revocar_refresh_token.assert_not_called()
+    caso_auth.tokens.cerrar_sesion.assert_called_once_with(
+        hashlib.sha256(b"refresh-de-prueba").hexdigest()
+    )

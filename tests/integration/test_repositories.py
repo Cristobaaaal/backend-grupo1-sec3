@@ -32,6 +32,8 @@ def test_migraciones_crean_el_esquema_completo_y_llegan_a_head(migrated_database
         "refresh_tokens",
         "password_reset_tokens",
         "alembic_version",
+        "auth_sessions",
+        "auth_rate_limits",
     } <= tables
     config = Config(str(PROJECT_ROOT / "alembic.ini"))
     with migrated_database.connect() as connection:

@@ -8,7 +8,8 @@ TEST_JWT_SECRET = "0123456789abcdef" * 4
 TEST_SECURITY_ENV = {
     "JWT_SECRET": TEST_JWT_SECRET,
     "JWT_ALGORITHM": "HS256",
-    "ACCESS_TOKEN_EXPIRE_MINUTES": "15",
+    "ACCESS_TOKEN_EXPIRE_SECONDS": "900",
+    "PASSWORD_RESET_EXPIRE_SECONDS": "900",
 }
 
 
@@ -21,6 +22,8 @@ def access_payload(**cambios):
         "exp": ahora + timedelta(minutes=5),
         "jti": str(uuid4()),
         "type": "access",
+        "ver": 0,
+        "sid": str(UUID(int=8)),
     }
     datos.update(cambios)
     return datos

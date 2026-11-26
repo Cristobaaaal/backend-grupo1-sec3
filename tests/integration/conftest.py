@@ -26,6 +26,50 @@ from app.repositories.usuario_repository import UsuarioRepository
 from app.schemas.schemas import CrearRegistroMedico
 from app.security.passwords import hash_password
 from tests.security_support import TEST_PASSWORD
+from tests.smtp_capture import smtp_capture, token_del_correo
+
+
+@pytest.fixture(scope="session")
+def servidor_smtp():
+    """Levanta un capturador SMTP real en un puerto local dinámico."""
+    with smtp_capture() as server:
+        yield server
+
+
+@pytest.fixture
+def correo_pruebas(servidor_smtp, monkeypatch):
+    """Dirige el envío real a la bandeja de prueba y aísla sus mensajes por caso."""
+    for variable, valor in {
+        "SMTP_HOST": "127.0.0.1",
+        "SMTP_PORT": str(servidor_smtp.server_address[1]),
+        "SMTP_USER": "",
+        "SMTP_PASSWORD": "",
+        "SMTP_STARTTLS": "false",
+        "SMTP_FROM": "no-reply@pokemon.local",
+        "PASSWORD_RESET_URL": "http://testserver/auth/reset-password",
+    }.items():
+        monkeypatch.setenv(variable, valor)
+    servidor_smtp.mensajes.clear()
+    try:
+        yield servidor_smtp
+    finally:
+        servidor_smtp.mensajes.clear()
+
+
+@pytest.fixture
+def solicitar_recuperacion(api_client, correo_pruebas):
+    """Solicita el enlace por HTTP y obtiene el JWT del mensaje SMTP recibido."""
+
+    def solicitar(usuario):
+        anteriores = len(correo_pruebas.mensajes)
+        respuesta = api_client.post(
+            "/auth/forgot-password", json={"email": usuario.email}
+        )
+        assert respuesta.status_code == 202, respuesta.text
+        assert len(correo_pruebas.mensajes) == anteriores + 1
+        return token_del_correo(correo_pruebas, usuario.email)
+
+    return solicitar
 
 
 @pytest.fixture

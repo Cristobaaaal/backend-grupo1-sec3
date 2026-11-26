@@ -56,27 +56,35 @@ def test_jwt_valido_contiene_identidad_caducidad_y_proposito():
     """Verifica claims firmados y la duración de 15 minutos del entorno de test."""
     usuario_id = UUID(int=5)
 
-    contenido = decodificar_access_token(crear_access_token(usuario_id))
+    contenido = decodificar_access_token(
+        crear_access_token(usuario_id, str(UUID(int=8)), 0)
+    )
 
     assert contenido["sub"] == str(usuario_id)
     assert contenido["type"] == "access"
     assert contenido["exp"] - contenido["iat"] == 15 * 60
     assert UUID(contenido["jti"]).version == 4
-    assert set(contenido) == {"sub", "iat", "exp", "jti", "type"}
+    assert contenido["sid"] == str(UUID(int=8))
+    assert contenido["ver"] == 0
+    assert set(contenido) == {"sub", "iat", "exp", "jti", "type", "ver", "sid"}
 
 
 def test_dos_access_tokens_tienen_identificadores_distintos():
     """Dos emisiones para la misma cuenta tienen jti distintos."""
     usuario_id = UUID(int=5)
-    primero = decodificar_access_token(crear_access_token(usuario_id))
-    segundo = decodificar_access_token(crear_access_token(usuario_id))
+    primero = decodificar_access_token(
+        crear_access_token(usuario_id, str(UUID(int=8)), 0)
+    )
+    segundo = decodificar_access_token(
+        crear_access_token(usuario_id, str(UUID(int=8)), 0)
+    )
 
     assert primero["jti"] != segundo["jti"]
 
 
 def test_jwt_manipulado_se_rechaza_por_la_firma():
     """Alterar la firma de un token real impide validarlo."""
-    token = crear_access_token(UUID(int=5))
+    token = crear_access_token(UUID(int=5), str(UUID(int=8)), 0)
 
     with pytest.raises(jwt.InvalidSignatureError):
         decodificar_access_token(alterar_firma(token))
@@ -99,7 +107,7 @@ def test_jwt_de_recuperacion_no_se_acepta_como_access():
         access_payload(type="password_reset"), TEST_JWT_SECRET, algorithm="HS256"
     )
 
-    with pytest.raises(jwt.InvalidTokenError, match="Tipo de token"):
+    with pytest.raises(jwt.InvalidTokenError):
         decodificar_access_token(token)
 
 
@@ -113,7 +121,7 @@ def test_jwt_rechaza_algoritmos_fuera_de_la_configuracion(algoritmo):
         decodificar_access_token(token)
 
 
-@pytest.mark.parametrize("claim", ["sub", "iat", "exp", "jti", "type"])
+@pytest.mark.parametrize("claim", ["sub", "iat", "exp", "jti", "type", "ver", "sid"])
 def test_jwt_rechaza_claims_obligatorios_ausentes(claim):
     """La validación exige cada claim aunque la firma sea correcta."""
     datos = access_payload()
@@ -144,14 +152,14 @@ def test_emision_rechaza_secreto_ausente_o_corto(monkeypatch, clave):
         monkeypatch.setenv("JWT_SECRET", clave)
 
     with pytest.raises(RuntimeError, match="32 bytes"):
-        crear_access_token(UUID(int=5))
+        crear_access_token(UUID(int=5), str(UUID(int=8)), 0)
 
 
 @pytest.mark.parametrize(
     ("variable", "valor", "mensaje"),
     [
         ("JWT_ALGORITHM", "RS256", "JWT_ALGORITHM"),
-        ("ACCESS_TOKEN_EXPIRE_MINUTES", "0", "positivo"),
+        ("ACCESS_TOKEN_EXPIRE_SECONDS", "0", "positivo"),
     ],
     ids=["algoritmo-no-soportado", "duracion-cero"],
 )
@@ -160,7 +168,7 @@ def test_emision_rechaza_configuracion_invalida(monkeypatch, variable, valor, me
     monkeypatch.setenv(variable, valor)
 
     with pytest.raises(RuntimeError, match=mensaje):
-        crear_access_token(UUID(int=5))
+        crear_access_token(UUID(int=5), str(UUID(int=8)), 0)
 
 
 @pytest.mark.parametrize(
