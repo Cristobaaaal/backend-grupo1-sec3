@@ -1,0 +1,5 @@
+# Herramientas de pruebas verificadas con Python 3.13 y las dependencias del proyecto.
+pytest==9.2.0
+pytest-cov==7.1.0
+coverage==7.17.5
+ruff==0.17.6

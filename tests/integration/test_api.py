@@ -1,100 +1,96 @@
-"""Casos reproducibles del contrato HTTP y la persistencia de la API."""
+"""Regresiones HTTP con servicios reales y PostgreSQL preparado por Alembic."""
 
-import tempfile
 import unittest
-from unittest.mock import patch
 from datetime import date
-from pathlib import Path
+from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
 
-from app.infrastructure.database import Base, get_db
-from app.main import app
+from app.infrastructure.database import get_db
 from app.infrastructure.models import UsuarioORM
-
+from app.main import app
+from tests.database import migrated_postgres_database
 
 ID_INEXISTENTE = "00000000-0000-0000-0000-000000000000"
+pytestmark = pytest.mark.integration
 
 
 class APIIntegracionTests(unittest.TestCase):
     def setUp(self):
-        self.entorno = patch.dict("os.environ", {
-            "JWT_SECRET": "clave-exclusiva-de-pruebas-aisladas-0123456789",
-            "JWT_ALGORITHM": "HS256",
-            "ACCESS_TOKEN_EXPIRE_SECONDS": "30",
-        })
-        self.entorno.start()
-        self.addCleanup(self.entorno.stop)
-        self.directorio = tempfile.TemporaryDirectory()
-        self.url = f"sqlite:///{Path(self.directorio.name) / 'pruebas.db'}"
-        self._abrir_motor()
-        with self.motor.connect() as conexion:
-            self.assertEqual(conexion.scalar(text("PRAGMA foreign_keys")), 1)
-        Base.metadata.create_all(self.motor)
+        self.enterContext(
+            patch.dict(
+                "os.environ",
+                {
+                    "JWT_SECRET": "clave-exclusiva-de-pruebas-aisladas-0123456789",
+                    "JWT_ALGORITHM": "HS256",
+                    "ACCESS_TOKEN_EXPIRE_SECONDS": "30",
+                },
+            )
+        )
+        self.motor = self.enterContext(migrated_postgres_database())
+        self.dependencias_anteriores = app.dependency_overrides.copy()
+        self.addCleanup(self._restaurar_dependencias)
         app.dependency_overrides[get_db] = self._sesion
-        self.cliente = TestClient(app)
-        registro = self.cliente.post("/auth/register", json={
-            "email": "admin.pruebas@example.com",
-            "nombre_completo": "Administrador Pruebas",
-            "password": "ClaveDePruebas123!",
-        })
+        self.cliente = self.enterContext(TestClient(app))
+        registro = self.cliente.post(
+            "/auth/register",
+            json={
+                "email": "admin.pruebas@example.com",
+                "nombre_completo": "Administrador Pruebas",
+                "password": "ClaveDePruebas123!",
+            },
+        )
         self.assertEqual(registro.status_code, 201, registro.text)
         with Session(self.motor) as db:
             usuario = db.get(UsuarioORM, registro.json()["id"])
             usuario.rol = "ADMIN"
             db.commit()
-        login = self.cliente.post("/auth/login", json={
-            "email": "admin.pruebas@example.com",
-            "password": "ClaveDePruebas123!",
-        })
+        login = self.cliente.post(
+            "/auth/login",
+            json={
+                "email": "admin.pruebas@example.com",
+                "password": "ClaveDePruebas123!",
+            },
+        )
         self.assertEqual(login.status_code, 200, login.text)
-        self.cliente.headers["Authorization"] = (
-            f"Bearer {login.json()['access_token']}"
-        )
+        self.cliente.headers["Authorization"] = f"Bearer {login.json()['access_token']}"
 
-    def tearDown(self):
-        self.cliente.close()
+    def _restaurar_dependencias(self):
         app.dependency_overrides.clear()
-        self.motor.dispose()
-        self.directorio.cleanup()
-
-    def _abrir_motor(self):
-        self.motor = create_engine(
-            self.url, connect_args={"check_same_thread": False}
-        )
-
-        @event.listens_for(self.motor, "connect")
-        def activar_claves_foraneas(dbapi_connection, connection_record):
-            cursor = dbapi_connection.cursor()
-            try:
-                cursor.execute("PRAGMA foreign_keys=ON")
-            finally:
-                cursor.close()
+        app.dependency_overrides.update(self.dependencias_anteriores)
 
     def _sesion(self):
         with Session(self.motor) as db:
             yield db
 
     def _crear_entrenador(self, nombre="Ash"):
-        respuesta = self.cliente.post("/entrenadores/", json={
-            "nombre": nombre,
-            "nivel_experiencia": 10,
-            "region_origen": "Kanto",
-            "medallas_obtenidas": 3,
-        })
+        respuesta = self.cliente.post(
+            "/entrenadores/",
+            json={
+                "nombre": nombre,
+                "nivel_experiencia": 10,
+                "region_origen": "Kanto",
+                "medallas_obtenidas": 3,
+            },
+        )
         self.assertEqual(respuesta.status_code, 201, respuesta.text)
         return respuesta.json()
 
-    def _crear_pokemon(self, nombre="Pikachu", tipo="ELECTRICO", nivel=10, entrenador_id=None):
-        respuesta = self.cliente.post("/pokemones/", json={
-            "nombre": nombre,
-            "tipo_principal": tipo,
-            "nivel": nivel,
-            "puntos_vida": 40,
-            "entrenador_id": entrenador_id,
-        })
+    def _crear_pokemon(
+        self, nombre="Pikachu", tipo="ELECTRICO", nivel=10, entrenador_id=None
+    ):
+        respuesta = self.cliente.post(
+            "/pokemones/",
+            json={
+                "nombre": nombre,
+                "tipo_principal": tipo,
+                "nivel": nivel,
+                "puntos_vida": 40,
+                "entrenador_id": entrenador_id,
+            },
+        )
         self.assertEqual(respuesta.status_code, 201, respuesta.text)
         return respuesta.json()
 
@@ -104,12 +100,15 @@ class APIIntegracionTests(unittest.TestCase):
         ruta = f"/entrenadores/{entrenador['id']}"
         self.assertEqual(self.cliente.get(ruta).json()["nombre"], "Ash")
 
-        actualizado = self.cliente.put(ruta, json={
-            "nombre": "Ash Ketchum",
-            "nivel_experiencia": 15,
-            "region_origen": "Kanto",
-            "medallas_obtenidas": 4,
-        })
+        actualizado = self.cliente.put(
+            ruta,
+            json={
+                "nombre": "Ash Ketchum",
+                "nivel_experiencia": 15,
+                "region_origen": "Kanto",
+                "medallas_obtenidas": 4,
+            },
+        )
         self.assertEqual(actualizado.status_code, 200, actualizado.text)
         self.assertEqual(actualizado.json()["nombre"], "Ash Ketchum")
         self.assertEqual(len(self.cliente.get("/entrenadores/").json()), 1)
@@ -117,29 +116,31 @@ class APIIntegracionTests(unittest.TestCase):
         self.assertEqual(self.cliente.get(ruta).status_code, 404)
 
     def test_ruta_protegida_sin_token_devuelve_401(self):
-        respuesta = self.cliente.get(
-            "/entrenadores/", headers={"Authorization": ""}
-        )
+        respuesta = self.cliente.get("/entrenadores/", headers={"Authorization": ""})
         self.assertEqual(respuesta.status_code, 401)
 
     def test_login_incorrecto_devuelve_error_uniforme(self):
-        respuesta = self.cliente.post("/auth/login", json={
-            "email": "admin.pruebas@example.com",
-            "password": "UnaClaveIncorrecta123!",
-        })
-        self.assertEqual(respuesta.status_code, 401)
-        self.assertEqual(
-            respuesta.json()["error"]["code"], "AUTHENTICATION_ERROR"
+        respuesta = self.cliente.post(
+            "/auth/login",
+            json={
+                "email": "admin.pruebas@example.com",
+                "password": "UnaClaveIncorrecta123!",
+            },
         )
+        self.assertEqual(respuesta.status_code, 401)
+        self.assertEqual(respuesta.json()["error"]["code"], "AUTHENTICATION_ERROR")
         self.assertEqual(respuesta.headers["WWW-Authenticate"], "Bearer")
 
     def test_datos_invalidos_devuelven_422_uniforme(self):
-        respuesta = self.cliente.post("/pokemones/", json={
-            "nombre": "",
-            "tipo_principal": "FUEGO",
-            "nivel": 999,
-            "puntos_vida": 40,
-        })
+        respuesta = self.cliente.post(
+            "/pokemones/",
+            json={
+                "nombre": "",
+                "tipo_principal": "FUEGO",
+                "nivel": 999,
+                "puntos_vida": 40,
+            },
+        )
         self.assertEqual(respuesta.status_code, 422)
         self.assertEqual(respuesta.json()["error"]["code"], "VALIDATION_ERROR")
         self.assertTrue(respuesta.json()["error"]["details"])
@@ -183,7 +184,6 @@ class APIIntegracionTests(unittest.TestCase):
     def test_datos_persisten_tras_reabrir_conexion(self):
         entrenador = self._crear_entrenador()
         self.motor.dispose()
-        self._abrir_motor()
         respuesta = self.cliente.get(f"/entrenadores/{entrenador['id']}")
         self.assertEqual(respuesta.status_code, 200, respuesta.text)
         self.assertEqual(respuesta.json()["nombre"], entrenador["nombre"])
@@ -200,7 +200,9 @@ class APIIntegracionTests(unittest.TestCase):
         asignado = self.cliente.patch(f"{ruta}/asignar/{primero['id']}")
         self.assertEqual(asignado.status_code, 200, asignado.text)
         self.assertEqual(asignado.json()["entrenador_id"], primero["id"])
-        self.assertEqual(len(self.cliente.get(f"/pokemones/entrenador/{primero['id']}").json()), 1)
+        self.assertEqual(
+            len(self.cliente.get(f"/pokemones/entrenador/{primero['id']}").json()), 1
+        )
 
         transferido = self.cliente.patch(f"{ruta}/transferir/{segundo['id']}")
         self.assertEqual(transferido.status_code, 200, transferido.text)
@@ -209,13 +211,16 @@ class APIIntegracionTests(unittest.TestCase):
         self.assertEqual(estadisticas.status_code, 200, estadisticas.text)
         self.assertEqual(estadisticas.json()["nivel"], 25)
 
-        actualizado = self.cliente.put(ruta, json={
-            "nombre": "Raichu",
-            "tipo_principal": "ELECTRICO",
-            "nivel": 35,
-            "puntos_vida": 95,
-            "entrenador_id": segundo["id"],
-        })
+        actualizado = self.cliente.put(
+            ruta,
+            json={
+                "nombre": "Raichu",
+                "tipo_principal": "ELECTRICO",
+                "nivel": 35,
+                "puntos_vida": 95,
+                "entrenador_id": segundo["id"],
+            },
+        )
         self.assertEqual(actualizado.status_code, 200, actualizado.text)
         self.assertEqual(actualizado.json()["nombre"], "Raichu")
         self.assertIsNone(self.cliente.patch(f"{ruta}/liberar").json()["entrenador_id"])
@@ -223,24 +228,32 @@ class APIIntegracionTests(unittest.TestCase):
         self.assertEqual(self.cliente.get(ruta).status_code, 404)
 
     def test_centros_y_registros_crud_con_reglas_de_borrado(self):
-        centro = self.cliente.post("/centros-pokemon/", json={
-            "nombre": "Centro Norte",
-            "ciudad": "Temuco",
-            "capacidad_maxima": 10,
-            "en_servicio": True,
-        })
+        centro = self.cliente.post(
+            "/centros-pokemon/",
+            json={
+                "nombre": "Centro Norte",
+                "ciudad": "Temuco",
+                "capacidad_maxima": 10,
+                "en_servicio": True,
+            },
+        )
         self.assertEqual(centro.status_code, 201, centro.text)
         centro_id = centro.json()["id"]
         ruta_centro = f"/centros-pokemon/{centro_id}"
         self.assertEqual(self.cliente.get(ruta_centro).status_code, 200)
         self.assertEqual(len(self.cliente.get("/centros-pokemon/").json()), 1)
-        self.assertEqual(len(self.cliente.get("/centros-pokemon/ciudad/temuco").json()), 1)
-        actualizado = self.cliente.put(ruta_centro, json={
-            "nombre": "Centro Norte",
-            "ciudad": "Temuco",
-            "capacidad_maxima": 15,
-            "en_servicio": True,
-        })
+        self.assertEqual(
+            len(self.cliente.get("/centros-pokemon/ciudad/temuco").json()), 1
+        )
+        actualizado = self.cliente.put(
+            ruta_centro,
+            json={
+                "nombre": "Centro Norte",
+                "ciudad": "Temuco",
+                "capacidad_maxima": 15,
+                "en_servicio": True,
+            },
+        )
         self.assertEqual(actualizado.status_code, 200, actualizado.text)
         self.assertEqual(actualizado.json()["capacidad_maxima"], 15)
 
