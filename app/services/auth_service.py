@@ -1,12 +1,11 @@
 import hashlib
-import secrets
 import logging
+import secrets
 import smtplib
-from uuid import UUID
-import jwt
-from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from datetime import UTC, datetime, timedelta
+from uuid import UUID, uuid4
 
+import jwt
 from sqlalchemy.exc import IntegrityError
 
 from app.core.exceptions import APIException, AuthenticationError, ConflictError
@@ -18,13 +17,14 @@ from app.schemas.auth_schemas import (
     RegistroRequest,
     TokenResponse,
 )
+from app.security.mail import enviar_recuperacion
 from app.security.passwords import hash_password, verify_password
 from app.security.tokens import (
-    crear_access_token, crear_reset_token, decodificar_reset_token,
+    crear_access_token,
+    crear_reset_token,
+    decodificar_reset_token,
     validar_configuracion_access,
 )
-from app.security.mail import enviar_recuperacion
-
 
 MAX_INTENTOS_FALLIDOS = 5
 MINUTOS_BLOQUEO = 15
@@ -62,9 +62,7 @@ class AuthService:
             self.usuario_repo.db.rollback()
 
             if self.usuario_repo.obtener_por_email(email):
-                raise ConflictError(
-                    "Ya existe una cuenta con ese correo."
-                ) from None
+                raise ConflictError("Ya existe una cuenta con ese correo.") from None
 
             raise
 
@@ -74,20 +72,18 @@ class AuthService:
 
     def autenticar(self, datos: LoginRequest) -> Usuario:
         """Verifica credenciales y controla intentos fallidos."""
-        usuario = self.usuario_repo.obtener_por_email(
-            str(datos.email)
-        )
+        usuario = self.usuario_repo.obtener_por_email(str(datos.email))
 
         if usuario is None:
             hash_password(datos.password)
             raise self._credenciales_invalidas()
 
-        ahora = datetime.now(timezone.utc)
+        ahora = datetime.now(UTC)
         bloqueo = usuario.bloqueado_hasta
 
         if bloqueo is not None:
             if bloqueo.tzinfo is None:
-                bloqueo = bloqueo.replace(tzinfo=timezone.utc)
+                bloqueo = bloqueo.replace(tzinfo=UTC)
 
             if bloqueo > ahora:
                 raise self._credenciales_invalidas()
@@ -101,18 +97,14 @@ class AuthService:
         )
 
         if not password_correcta:
-            intentos = (
-                1
-                if bloqueo is not None
-                else usuario.intentos_fallidos + 1
-            )
+            intentos = 1 if bloqueo is not None else usuario.intentos_fallidos + 1
 
             bloqueado_hasta = None
 
             if intentos >= MAX_INTENTOS_FALLIDOS:
-                bloqueado_hasta = (
-                    ahora + timedelta(minutes=MINUTOS_BLOQUEO)
-                ).replace(tzinfo=None)
+                bloqueado_hasta = (ahora + timedelta(minutes=MINUTOS_BLOQUEO)).replace(
+                    tzinfo=None
+                )
 
             self.usuario_repo.actualizar_intentos_fallidos(
                 usuario.id,
@@ -139,11 +131,9 @@ class AuthService:
         access_token = crear_access_token(usuario.id, familia_id, usuario.token_version)
         refresh_token = secrets.token_urlsafe(48)
 
-        token_hash = hashlib.sha256(
-            refresh_token.encode("utf-8")
-        ).hexdigest()
+        token_hash = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
 
-        ahora = datetime.now(timezone.utc).replace(tzinfo=None)
+        ahora = datetime.now(UTC).replace(tzinfo=None)
 
         registro = RefreshToken(
             id=uuid4(),
@@ -170,9 +160,7 @@ class AuthService:
 
     def logout(self, refresh_token: str) -> None:
         """Revoca la sesión asociada al refresh token."""
-        token_hash = hashlib.sha256(
-            refresh_token.encode("utf-8")
-        ).hexdigest()
+        token_hash = hashlib.sha256(refresh_token.encode("utf-8")).hexdigest()
 
         self.token_repo.cerrar_sesion(token_hash)
 
@@ -181,13 +169,18 @@ class AuthService:
         # Valida la configuración antes de consumir el token actual.
         validar_configuracion_access()
         resultado = self.token_repo.rotar(
-            self._hash(refresh_token), self._hash(nuevo), str(uuid4()), self._ahora(),
+            self._hash(refresh_token),
+            self._hash(nuevo),
+            str(uuid4()),
+            self._ahora(),
         )
         if resultado is None:
             raise AuthenticationError("Refresh token inválido, vencido o revocado.")
         usuario, familia_id = resultado
         return TokenResponse(
-            access_token=crear_access_token(usuario.id, familia_id, usuario.token_version),
+            access_token=crear_access_token(
+                usuario.id, familia_id, usuario.token_version
+            ),
             refresh_token=nuevo,
         )
 
@@ -197,7 +190,7 @@ class AuthService:
 
     @staticmethod
     def _ahora():
-        return datetime.now(timezone.utc).replace(tzinfo=None)
+        return datetime.now(UTC).replace(tzinfo=None)
 
     def solicitar_recuperacion(self, email: str, origen: str) -> None:
         email = str(email).strip().lower()
@@ -213,25 +206,40 @@ class AuthService:
         token = crear_reset_token(usuario.id, usuario.token_version)
         contenido = decodificar_reset_token(token)
         registro = PasswordResetToken(
-            id=UUID(contenido["jti"]), usuario_id=usuario.id,
-            token_hash=self._hash(token), creado_en=ahora,
-            expira_en=datetime.fromtimestamp(contenido["exp"], timezone.utc).replace(tzinfo=None),
+            id=UUID(contenido["jti"]),
+            usuario_id=usuario.id,
+            token_hash=self._hash(token),
+            creado_en=ahora,
+            expira_en=datetime.fromtimestamp(contenido["exp"], UTC).replace(
+                tzinfo=None
+            ),
         )
         if self.token_repo.preparar_recuperacion(registro, usuario.token_version):
             try:
                 enviar_recuperacion(email, token)
             except (OSError, smtplib.SMTPException):
-                logging.getLogger(__name__).error("No se pudo entregar el correo de recuperación.")
+                logging.getLogger(__name__).error(
+                    "No se pudo entregar el correo de recuperación."
+                )
 
     def restablecer(self, token: str, password: str, origen: str) -> None:
-        if not self.token_repo.limitar(f"reset-confirm:{origen}", 20, 900, self._ahora()):
-            raise APIException("Demasiados intentos. Intenta más tarde.", "RATE_LIMITED", 429)
+        if not self.token_repo.limitar(
+            f"reset-confirm:{origen}", 20, 900, self._ahora()
+        ):
+            raise APIException(
+                "Demasiados intentos. Intenta más tarde.", "RATE_LIMITED", 429
+            )
         try:
             contenido = decodificar_reset_token(token)
         except jwt.InvalidTokenError:
-            raise AuthenticationError("Token de recuperación inválido o vencido.") from None
+            raise AuthenticationError(
+                "Token de recuperación inválido o vencido."
+            ) from None
         if not self.token_repo.consumir_recuperacion(
-            self._hash(token), UUID(contenido["sub"]), contenido["ver"],
-            hash_password(password), self._ahora(),
+            self._hash(token),
+            UUID(contenido["sub"]),
+            contenido["ver"],
+            hash_password(password),
+            self._ahora(),
         ):
             raise AuthenticationError("Token de recuperación inválido o vencido.")

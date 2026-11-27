@@ -1,18 +1,22 @@
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
-from typing import Optional
 from uuid import UUID
 
-class TipoPokemon(str, Enum): #Enum para que no sea texto libre. Validación de texto permitido
+
+class TipoPokemon(
+    str, Enum
+):  # Enum para que no sea texto libre. Validación de texto permitido
     FUEGO = "FUEGO"
     AGUA = "AGUA"
     PLANTA = "PLANTA"
     ELECTRICO = "ELECTRICO"
 
+
 class EstadoAtencion(str, Enum):
     EN_TRATAMIENTO = "EN_TRATAMIENTO"
     DADO_DE_ALTA = "DADO_DE_ALTA"
+
 
 class RolUsuario(str, Enum):
     ADMIN = "ADMIN"
@@ -20,7 +24,8 @@ class RolUsuario(str, Enum):
     ENTRENADOR = "ENTRENADOR"
 
 
-# --- Entidades --- 
+# --- Entidades ---
+
 
 @dataclass
 class Usuario:
@@ -31,8 +36,9 @@ class Usuario:
     rol: RolUsuario
     activo: bool = True
     intentos_fallidos: int = 0
-    bloqueado_hasta: Optional[datetime] = None
+    bloqueado_hasta: datetime | None = None
     token_version: int = 0
+
 
 @dataclass
 class RefreshToken:
@@ -41,8 +47,9 @@ class RefreshToken:
     usuario_id: UUID
     expira_en: datetime
     revocado: bool = False
-    creado_en: Optional[datetime] = None
-    familia_id: Optional[str] = None
+    creado_en: datetime | None = None
+    familia_id: str | None = None
+
 
 @dataclass
 class PasswordResetToken:
@@ -51,15 +58,17 @@ class PasswordResetToken:
     usuario_id: UUID
     expira_en: datetime
     usado: bool = False
-    creado_en: Optional[datetime] = None
+    creado_en: datetime | None = None
 
-@dataclass  #dataclass para evitar definir el constructor __init__ + los self. (Menos código) 
+
+@dataclass  # dataclass para evitar definir el constructor __init__ + los self. (Menos código)
 class Entrenador:
-    id: UUID # id única, no 1, 2 etc.
+    id: UUID  # id única, no 1, 2 etc.
     nombre: str
     nivel_experiencia: int
     region_origen: str
     medallas_obtenidas: int
+
 
 @dataclass
 class Pokemon:
@@ -68,7 +77,8 @@ class Pokemon:
     tipo_principal: TipoPokemon
     nivel: int
     puntos_vida: int
-    entrenador_id: Optional[UUID] = None
+    entrenador_id: UUID | None = None
+
 
 @dataclass
 class CentroPokemon:
@@ -77,6 +87,7 @@ class CentroPokemon:
     ciudad: str
     capacidad_maxima: int
     en_servicio: bool
+
 
 @dataclass
 class RegistroMedico:

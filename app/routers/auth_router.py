@@ -6,17 +6,16 @@ from app.domain.models import Usuario
 from app.schemas.auth_schemas import (
     LoginRequest,
     LogoutRequest,
+    MensajeResponse,
+    RecuperacionRequest,
+    RefreshRequest,
     RegistroRequest,
+    RestablecerRequest,
     TokenResponse,
     UsuarioResponse,
-    RefreshRequest,
-    RecuperacionRequest,
-    RestablecerRequest,
-    MensajeResponse,
 )
 from app.schemas.schemas import ErrorResponse
 from app.services.auth_service import AuthService
-
 
 router = APIRouter(
     prefix="/auth",
@@ -65,8 +64,7 @@ def registrar(
         401: {
             "model": ErrorResponse,
             "description": (
-                "Credenciales inválidas, cuenta bloqueada "
-                "o cuenta desactivada."
+                "Credenciales inválidas, cuenta bloqueada o cuenta desactivada."
             ),
         },
         422: {
@@ -129,7 +127,8 @@ def logout(
 
 
 @router.post(
-    "/refresh", response_model=TokenResponse,
+    "/refresh",
+    response_model=TokenResponse,
     summary="Renovar la sesión con rotación de tokens",
     description=(
         "Consume un refresh vigente y devuelve nuevos access y refresh. "
@@ -137,14 +136,21 @@ def logout(
         "consumido revoca toda su familia, incluidos los access tokens. "
         "Un token desconocido, vencido o posterior a logout devuelve 401."
     ),
-    responses={401: {"model": ErrorResponse, "description": "Refresh inválido, vencido o revocado."}},
+    responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "Refresh inválido, vencido o revocado.",
+        }
+    },
 )
 def refresh(datos: RefreshRequest, servicio: AuthService = Depends(get_auth_service)):
     return servicio.refresh(datos.refresh_token)
 
 
 @router.post(
-    "/forgot-password", response_model=MensajeResponse, status_code=202,
+    "/forgot-password",
+    response_model=MensajeResponse,
+    status_code=202,
     summary="Solicitar recuperación por correo",
     description=(
         "Envía un enlace de un solo uso por SMTP/Mailpit cuando corresponde. "
@@ -155,15 +161,21 @@ def refresh(datos: RefreshRequest, servicio: AuthService = Depends(get_auth_serv
     ),
 )
 def solicitar_recuperacion(
-    datos: RecuperacionRequest, request: Request,
+    datos: RecuperacionRequest,
+    request: Request,
     servicio: AuthService = Depends(get_auth_service),
 ):
-    servicio.solicitar_recuperacion(str(datos.email), request.client.host if request.client else "unknown")
-    return MensajeResponse(message="Si la cuenta está disponible, recibirás instrucciones de recuperación.")
+    servicio.solicitar_recuperacion(
+        str(datos.email), request.client.host if request.client else "unknown"
+    )
+    return MensajeResponse(
+        message="Si la cuenta está disponible, recibirás instrucciones de recuperación."
+    )
 
 
 @router.post(
-    "/reset-password", response_model=MensajeResponse,
+    "/reset-password",
+    response_model=MensajeResponse,
     summary="Restablecer contraseña con JWT de recuperación",
     description=(
         "Requiere un JWT de propósito password_reset, vigente y no utilizado, "
@@ -172,22 +184,34 @@ def solicitar_recuperacion(
         "El enlace vence a los 15 minutos por defecto."
     ),
     responses={
-        401: {"model": ErrorResponse, "description": "Token alterado, vencido, usado o de otro propósito."},
-        429: {"model": ErrorResponse, "description": "Más de 20 intentos por IP en 15 minutos."},
+        401: {
+            "model": ErrorResponse,
+            "description": "Token alterado, vencido, usado o de otro propósito.",
+        },
+        429: {
+            "model": ErrorResponse,
+            "description": "Más de 20 intentos por IP en 15 minutos.",
+        },
         422: {"model": ErrorResponse, "description": "Contraseña o entrada inválida."},
     },
 )
 def restablecer(
-    datos: RestablecerRequest, request: Request,
+    datos: RestablecerRequest,
+    request: Request,
     servicio: AuthService = Depends(get_auth_service),
 ):
-    servicio.restablecer(datos.token, datos.password, request.client.host if request.client else "unknown")
+    servicio.restablecer(
+        datos.token,
+        datos.password,
+        request.client.host if request.client else "unknown",
+    )
     return MensajeResponse(message="Contraseña actualizada. Inicia sesión nuevamente.")
 
 
 @router.get("/reset-password", response_class=HTMLResponse, include_in_schema=False)
 def formulario_recuperacion():
-    return HTMLResponse('''<!doctype html>
+    return HTMLResponse(
+        """<!doctype html>
 <html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Restablecer contraseña</title>
 <body><h1>Restablecer contraseña</h1>
@@ -211,4 +235,6 @@ document.getElementById('form').addEventListener('submit', async (event) => {
     if (response.ok) document.getElementById('form').remove();
   } catch { salida.textContent = 'Error de conexión. Intenta nuevamente.'; }
 });
-</script></body></html>''', headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+</script></body></html>""",
+        headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+    )

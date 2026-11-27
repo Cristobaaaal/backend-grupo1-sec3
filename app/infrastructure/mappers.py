@@ -1,28 +1,31 @@
 from uuid import UUID
+
 from app.domain.models import (
-    Entrenador,
-    Pokemon,
-    TipoPokemon,
     CentroPokemon,
-    RegistroMedico,
+    Entrenador,
     EstadoAtencion,
-    Usuario,
-    RolUsuario,
-    RefreshToken,
     PasswordResetToken,
+    Pokemon,
+    RefreshToken,
+    RegistroMedico,
+    RolUsuario,
+    TipoPokemon,
+    Usuario,
 )
 from app.infrastructure.models import (
-    EntrenadorORM,
-    PokemonORM,
     CentroPokemonORM,
+    EntrenadorORM,
+    PasswordResetTokenORM,
+    PokemonORM,
+    RefreshTokenORM,
     RegistroMedicoORM,
     UsuarioORM,
-    RefreshTokenORM,
-    PasswordResetTokenORM,
 )
 
 
-def entrenador_a_domain(modelo: EntrenadorORM) -> Entrenador: # Recibe y devuelve "Entrenador"
+def entrenador_a_domain(
+    modelo: EntrenadorORM,
+) -> Entrenador:  # Recibe y devuelve "Entrenador"
     return Entrenador(
         id=UUID(modelo.id),
         nombre=modelo.nombre,
@@ -30,6 +33,7 @@ def entrenador_a_domain(modelo: EntrenadorORM) -> Entrenador: # Recibe y devuelv
         region_origen=modelo.region_origen,
         medallas_obtenidas=modelo.medallas_obtenidas,
     )
+
 
 def pokemon_a_domain(modelo: PokemonORM) -> Pokemon:
     return Pokemon(
@@ -40,10 +44,12 @@ def pokemon_a_domain(modelo: PokemonORM) -> Pokemon:
         puntos_vida=modelo.puntos_vida,
         entrenador_id=(
             UUID(modelo.entrenador_id)
-            if modelo.entrenador_id is not None # Si tiene entrenador convierte su id a UUID
+            if modelo.entrenador_id
+            is not None  # Si tiene entrenador convierte su id a UUID
             else None
         ),
     )
+
 
 def centro_a_domain(modelo: CentroPokemonORM) -> CentroPokemon:
     return CentroPokemon(
@@ -53,6 +59,7 @@ def centro_a_domain(modelo: CentroPokemonORM) -> CentroPokemon:
         capacidad_maxima=modelo.capacidad_maxima,
         en_servicio=modelo.en_servicio,
     )
+
 
 def registro_a_domain(modelo: RegistroMedicoORM) -> RegistroMedico:
     return RegistroMedico(
@@ -64,6 +71,7 @@ def registro_a_domain(modelo: RegistroMedicoORM) -> RegistroMedico:
         estado=EstadoAtencion(modelo.estado),
         costo=modelo.costo,
     )
+
 
 def usuario_a_domain(modelo: UsuarioORM) -> Usuario:
     return Usuario(
@@ -78,6 +86,7 @@ def usuario_a_domain(modelo: UsuarioORM) -> Usuario:
         token_version=modelo.token_version,
     )
 
+
 def refresh_token_a_domain(modelo: RefreshTokenORM) -> RefreshToken:
     return RefreshToken(
         id=UUID(modelo.id),
@@ -88,6 +97,7 @@ def refresh_token_a_domain(modelo: RefreshTokenORM) -> RefreshToken:
         familia_id=modelo.familia_id,
         creado_en=modelo.creado_en,
     )
+
 
 def password_reset_token_a_domain(modelo: PasswordResetTokenORM) -> PasswordResetToken:
     return PasswordResetToken(

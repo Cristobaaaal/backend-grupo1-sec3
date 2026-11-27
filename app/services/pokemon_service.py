@@ -1,20 +1,28 @@
-from app.domain.models import Pokemon, TipoPokemon
-from app.repositories.pokemon_repository import PokemonRepository
-from app.repositories.trainer_repository import EntrenadorRepository
-from app.repositories.registro_medico_repository import RegistroMedicoRepository
-from app.schemas.schemas import CrearPokemon, PaginatedResponse
-from app.core.exceptions import NotFoundException, BusinessRuleError, ConflictError
-from typing import List, Optional
 from uuid import UUID, uuid4
 
+from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundException
+from app.domain.models import Pokemon, TipoPokemon
+from app.repositories.pokemon_repository import PokemonRepository
+from app.repositories.registro_medico_repository import RegistroMedicoRepository
+from app.repositories.trainer_repository import EntrenadorRepository
+from app.schemas.schemas import CrearPokemon, PaginatedResponse
+
+
 class PokemonService:
-    def __init__(self, repository: PokemonRepository, trainer_repository: EntrenadorRepository, registro_medico_repository: RegistroMedicoRepository):
+    def __init__(
+        self,
+        repository: PokemonRepository,
+        trainer_repository: EntrenadorRepository,
+        registro_medico_repository: RegistroMedicoRepository,
+    ):
         self.repository = repository
         self.trainer_repository = trainer_repository
         self.registro_medico_repository = registro_medico_repository
 
-    def _validar_entrenador_existe(self, entrenador_id: Optional[UUID]) -> None:
-        if entrenador_id is not None and not self.trainer_repository.get_by_id(entrenador_id):
+    def _validar_entrenador_existe(self, entrenador_id: UUID | None) -> None:
+        if entrenador_id is not None and not self.trainer_repository.get_by_id(
+            entrenador_id
+        ):
             raise NotFoundException("entrenador", entrenador_id)
 
     def _guardar_cambios(self, pokemon: Pokemon) -> Pokemon:
@@ -33,7 +41,9 @@ class PokemonService:
 
         return pokemon_actualizado
 
-    def crear_pokemon(self, datos: CrearPokemon) -> Pokemon: # es el tipo de dato q se espera
+    def crear_pokemon(
+        self, datos: CrearPokemon
+    ) -> Pokemon:  # es el tipo de dato q se espera
         self._validar_entrenador_existe(datos.entrenador_id)
         pokemon = Pokemon(
             id=uuid4(),
@@ -41,23 +51,23 @@ class PokemonService:
             tipo_principal=datos.tipo_principal,
             nivel=datos.nivel,
             puntos_vida=datos.puntos_vida,
-            entrenador_id=datos.entrenador_id
+            entrenador_id=datos.entrenador_id,
         )
         return self.repository.save(pokemon)
-    
-    def obtener_todos(self) -> List[Pokemon]:
-        return self.repository.get_all() #llama a todos los pokemones
+
+    def obtener_todos(self) -> list[Pokemon]:
+        return self.repository.get_all()  # llama a todos los pokemones
 
     ATRIBUTOS_ORDENABLES = {"nombre", "nivel", "puntos_vida"}
 
     def listar_paginado(
-            self,
-            tipo: Optional[TipoPokemon] = None,
-            ordenar_por: str = "nombre",
-            direccion: str = "asc",
-            pagina: int = 1,
-            limite: int = 20,
-    )  -> PaginatedResponse:
+        self,
+        tipo: TipoPokemon | None = None,
+        ordenar_por: str = "nombre",
+        direccion: str = "asc",
+        pagina: int = 1,
+        limite: int = 20,
+    ) -> PaginatedResponse:
         if ordenar_por not in self.ATRIBUTOS_ORDENABLES:
             raise BusinessRuleError(
                 f"ordenar_por debe ser uno de: {', '.join(sorted(self.ATRIBUTOS_ORDENABLES))}"
@@ -88,18 +98,20 @@ class PokemonService:
         )
 
     def obtener_por_id(self, pokemon_id: UUID) -> Pokemon:
-        pokemon = self.repository.get_by_id(pokemon_id) #lo busca por id
+        pokemon = self.repository.get_by_id(pokemon_id)  # lo busca por id
         if not pokemon:
-            raise NotFoundException("pokemon", pokemon_id) #si no esta le manda un error
+            raise NotFoundException(
+                "pokemon", pokemon_id
+            )  # si no esta le manda un error
         return pokemon
 
-    def obtener_por_tipo(self, tipo: TipoPokemon) -> List[Pokemon]:
+    def obtener_por_tipo(self, tipo: TipoPokemon) -> list[Pokemon]:
         return self.repository.get_by_tipo(tipo)
 
-    def obtener_por_entrenador(self, entrenador_id: UUID) -> List[Pokemon]:
+    def obtener_por_entrenador(self, entrenador_id: UUID) -> list[Pokemon]:
         return self.repository.get_by_entrenador_id(entrenador_id)
 
-    def obtener_sin_entrenador(self) -> List[Pokemon]:
+    def obtener_sin_entrenador(self) -> list[Pokemon]:
         return self.repository.get_sin_entrenador()
 
     def asignar_entrenador(self, pokemon_id: UUID, entrenador_id: UUID) -> Pokemon:
@@ -113,7 +125,9 @@ class PokemonService:
         pokemon.entrenador_id = entrenador_id
         return self._guardar_cambios(pokemon)
 
-    def transferir_entrenador(self, pokemon_id: UUID, nuevo_entrenador_id: UUID) -> Pokemon:
+    def transferir_entrenador(
+        self, pokemon_id: UUID, nuevo_entrenador_id: UUID
+    ) -> Pokemon:
         self._validar_entrenador_existe(nuevo_entrenador_id)
         pokemon = self.obtener_por_id(pokemon_id)
         if pokemon.entrenador_id == nuevo_entrenador_id:
@@ -129,7 +143,9 @@ class PokemonService:
         pokemon.entrenador_id = None
         return self._guardar_cambios(pokemon)
 
-    def actualizar_stats(self, pokemon_id: UUID, nivel: int, puntos_vida: int) -> Pokemon:
+    def actualizar_stats(
+        self, pokemon_id: UUID, nivel: int, puntos_vida: int
+    ) -> Pokemon:
         pokemon = self.obtener_por_id(pokemon_id)
         pokemon.nivel = nivel
         pokemon.puntos_vida = puntos_vida
@@ -142,7 +158,9 @@ class PokemonService:
             for registro in self.registro_medico_repository.obtener_todos()
         )
         if tiene_registros:
-            raise ConflictError(f"No se puede eliminar el Pokémon {pokemon_id} porque tiene registros médicos asociados.")
+            raise ConflictError(
+                f"No se puede eliminar el Pokémon {pokemon_id} porque tiene registros médicos asociados."
+            )
         eliminado = self.repository.delete(pokemon_id)
         if not eliminado:
             raise NotFoundException("pokemon", pokemon_id)

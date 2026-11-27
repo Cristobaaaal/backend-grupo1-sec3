@@ -1,16 +1,20 @@
-from datetime import date #Importaciones Inicio
+from datetime import date  # Importaciones Inicio
 
-from app.infrastructure.database import SessionLocal #Permite abrir una sesión para trabajar con la base de datos.
+from app.infrastructure.database import (
+    SessionLocal,  # Permite abrir una sesión para trabajar con la base de datos.
+)
 from app.infrastructure.models import (
+    CentroPokemonORM,
     EntrenadorORM,
     PokemonORM,
-    CentroPokemonORM,
     RegistroMedicoORM,
     UsuarioORM,
-) #Importaciones Fin
+)  # Importaciones Fin
 
 
-def insertar_si_falta(db, modelo, datos): #Comprobación antes de insertar un registro en la base de datos.
+def insertar_si_falta(
+    db, modelo, datos
+):  # Comprobación antes de insertar un registro en la base de datos.
     existente = db.get(modelo, datos["id"])
 
     if existente is not None:
@@ -20,7 +24,7 @@ def insertar_si_falta(db, modelo, datos): #Comprobación antes de insertar un re
     return True
 
 
-def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de datos.
+def ejecutar_seed():  # Variados Ejemplos de seeding de datos para la base de datos.
     entrenadores = [
         {
             "id": "10000000-0000-4000-8000-000000000001",
@@ -130,7 +134,7 @@ def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de dato
         },
     ]
 
-    grupos = [ #Grupos de datos a insertar en la base de datos
+    grupos = [  # Grupos de datos a insertar en la base de datos
         (UsuarioORM, usuarios),
         (EntrenadorORM, entrenadores),
         (CentroPokemonORM, centros),
@@ -156,5 +160,5 @@ def ejecutar_seed(): #Variados Ejemplos de seeding de datos para la base de dato
     print(f"Seeder completado: {creados} creados, {omitidos} existentes.")
 
 
-if __name__ == "__main__": #Arrancar Programa de Seed de Datos.
+if __name__ == "__main__":  # Arrancar Programa de Seed de Datos.
     ejecutar_seed()

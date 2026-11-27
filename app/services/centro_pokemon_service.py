@@ -1,19 +1,26 @@
-from typing import List
 from uuid import UUID, uuid4
+
+from app.core.exceptions import BusinessRuleError, ConflictError, NotFoundException
 from app.domain.models import CentroPokemon, EstadoAtencion
 from app.repositories.centro_pokemon_repository import CentroPokemonRepository
-from app.schemas.schemas import CrearCentroPokemon
 from app.repositories.registro_medico_repository import RegistroMedicoRepository
-from app.core.exceptions import NotFoundException, BusinessRuleError, ConflictError
+from app.schemas.schemas import CrearCentroPokemon
+
 
 class CentroPokemonService:
-    def __init__(self, centro_repo: CentroPokemonRepository, registro_repo: RegistroMedicoRepository):
+    def __init__(
+        self,
+        centro_repo: CentroPokemonRepository,
+        registro_repo: RegistroMedicoRepository,
+    ):
         self.centro_repo = centro_repo
         self.registro_repo = registro_repo
 
     def crear_centro(self, datos: CrearCentroPokemon) -> CentroPokemon:
         if datos.capacidad_maxima <= 0:
-            raise BusinessRuleError("La capacidad máxima del centro debe ser mayor a 0.")
+            raise BusinessRuleError(
+                "La capacidad máxima del centro debe ser mayor a 0."
+            )
 
         nuevo_centro = CentroPokemon(
             id=uuid4(),
@@ -25,7 +32,7 @@ class CentroPokemonService:
 
         return self.centro_repo.save(nuevo_centro)
 
-    def obtener_todos(self) -> List[CentroPokemon]:
+    def obtener_todos(self) -> list[CentroPokemon]:
         return self.centro_repo.get_all()
 
     def obtener_por_id(self, centro_id: UUID) -> CentroPokemon:
@@ -34,12 +41,12 @@ class CentroPokemonService:
             raise NotFoundException("centro pokémon", centro_id)
         return centro
 
-    def obtener_por_ciudad(self, ciudad: str) -> List[CentroPokemon]:
+    def obtener_por_ciudad(self, ciudad: str) -> list[CentroPokemon]:
         return self.centro_repo.get_by_ciudad(ciudad)
 
     def eliminar_centro_pokemon(self, centro_id: UUID) -> None:
         self.obtener_por_id(centro_id)
-        
+
         tiene_pacientes_activos = any(
             r.centro_id == centro_id and r.estado == EstadoAtencion.EN_TRATAMIENTO
             for r in self.registro_repo.obtener_todos()
@@ -52,17 +59,19 @@ class CentroPokemonService:
 
         if tiene_pacientes_activos:
             raise BusinessRuleError(
-                f"No se puede eliminar el centro {centro_id}: tiene pokemones en tratamiento.")
+                f"No se puede eliminar el centro {centro_id}: tiene pokemones en tratamiento."
+            )
 
         if registros_del_centro:
-            raise ConflictError(f"No se puede eliminar el centro {centro_id}: tiene registros médicos históricos asociados.")
+            raise ConflictError(
+                f"No se puede eliminar el centro {centro_id}: tiene registros médicos históricos asociados."
+            )
 
-        
         self.centro_repo.delete(centro_id)
 
-        
-    
-    def actualizar_centro_pokemon(self, centro_id: UUID, datos: CrearCentroPokemon) -> CentroPokemon:
+    def actualizar_centro_pokemon(
+        self, centro_id: UUID, datos: CrearCentroPokemon
+    ) -> CentroPokemon:
         actualizado = self.centro_repo.actualizar(centro_id, datos)
         if not actualizado:
             raise NotFoundException("centro pokémon", centro_id)

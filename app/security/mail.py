@@ -16,8 +16,11 @@ def enviar_recuperacion(destinatario: str, token: str) -> None:
         "Solicitaste cambiar tu contraseña. Abre este enlace de un solo uso:\n"
         f"{enlace}\n\nSi no lo solicitaste, ignora este mensaje."
     )
-    with smtplib.SMTP(os.getenv("SMTP_HOST", "127.0.0.1"),
-                      int(os.getenv("SMTP_PORT", "1025")), timeout=10) as smtp:
+    with smtplib.SMTP(
+        os.getenv("SMTP_HOST", "127.0.0.1"),
+        int(os.getenv("SMTP_PORT", "1025")),
+        timeout=10,
+    ) as smtp:
         if os.getenv("SMTP_STARTTLS", "false").lower() == "true":
             smtp.starttls()
         usuario = os.getenv("SMTP_USER")

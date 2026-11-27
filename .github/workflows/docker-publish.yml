@@ -6,6 +6,8 @@ on:
   push:
     branches: [main]   # Se ejecuta al integrar cambios en main (por ejemplo, al mergear un PR)
     tags: ["v*"]       # Y al crear un tag de versión, como v1.0
+  pull_request:
+    branches: [main]
   workflow_dispatch:   # Permite ejecutarlo a mano desde la pestaña Actions
 
 permissions:
@@ -13,13 +15,48 @@ permissions:
   packages: write      # Necesario para publicar en GHCR con el token automático
 
 jobs:
-  publicar:
+  quality-and-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Descargar el código
         uses: actions/checkout@v4
 
-      - name: Iniciar sesión en GHCR
+      - name: Instalar uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Configurar Python
+        run: uv python install 3.13
+
+      - name: Instalar dependencias
+        run: |
+          uv sync --dev
+          uv pip install -r tests/requirements.txt
+
+      - name: Linter y Formato (Ruff)
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Levantar BD de pruebas
+        run: docker compose -f tests/docker-compose.test.yml up -d --wait
+
+      - name: Pruebas y Cobertura (Pytest)
+        working-directory: tests
+        run: uv run pytest -c pytest.ini --cov-config=.coveragerc --cov --cov-report=term-missing --cov-fail-under=85
+
+      - name: Detener BD de pruebas
+        if: always()
+        run: docker compose -f tests/docker-compose.test.yml down
+
+  publicar:
+    needs: quality-and-tests
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+
+      - name: sesion en GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io

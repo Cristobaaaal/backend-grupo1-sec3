@@ -1,4 +1,3 @@
-from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -33,17 +32,17 @@ class CentroPokemonRepository:
         self.db.refresh(modelo)
         return centro_a_domain(modelo)
 
-    def get_all(self) -> List[CentroPokemon]:
+    def get_all(self) -> list[CentroPokemon]:
         modelos = self.db.scalars(select(CentroPokemonORM)).all()
         return [centro_a_domain(modelo) for modelo in modelos]
 
-    def get_by_id(self, centro_id: UUID) -> Optional[CentroPokemon]:
+    def get_by_id(self, centro_id: UUID) -> CentroPokemon | None:
         modelo = self.db.get(CentroPokemonORM, str(centro_id))
         if modelo is None:
             return None
         return centro_a_domain(modelo)
 
-    def get_by_ciudad(self, ciudad: str) -> List[CentroPokemon]:
+    def get_by_ciudad(self, ciudad: str) -> list[CentroPokemon]:
         consulta = select(CentroPokemonORM).where(
             func.lower(CentroPokemonORM.ciudad) == ciudad.lower()
         )
@@ -69,7 +68,7 @@ class CentroPokemonRepository:
 
     def actualizar(
         self, centro_pokemon_id: UUID, datos: CrearCentroPokemon
-    ) -> Optional[CentroPokemon]:
+    ) -> CentroPokemon | None:
         modelo = self.db.get(CentroPokemonORM, str(centro_pokemon_id))
         if modelo is None:
             return None

@@ -1,12 +1,14 @@
-from app.domain.models import Entrenador
 from uuid import UUID
-from typing import List, Optional
+
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
 from app.core.exceptions import ConflictError
-from app.infrastructure.models import EntrenadorORM
+from app.domain.models import Entrenador
 from app.infrastructure.mappers import entrenador_a_domain
-from sqlalchemy import select
+from app.infrastructure.models import EntrenadorORM
+
 
 class EntrenadorRepository:
     def __init__(self, db: Session):
@@ -20,7 +22,7 @@ class EntrenadorRepository:
             region_origen=entrenador.region_origen,
             medallas_obtenidas=entrenador.medallas_obtenidas,
         )
-        self.db.add(modelo) # Añade el objeto para insertarlo
+        self.db.add(modelo)  # Añade el objeto para insertarlo
         try:
             self.db.commit()
         except IntegrityError as error:
@@ -31,14 +33,14 @@ class EntrenadorRepository:
         except Exception:
             self.db.rollback()
             raise
-        self.db.refresh(modelo)     # Recarga los valores de la db
+        self.db.refresh(modelo)  # Recarga los valores de la db
         return entrenador_a_domain(modelo)  # Devuelve un Entrenador
 
-    def get_all(self) -> List[Entrenador]:
+    def get_all(self) -> list[Entrenador]:
         modelos = self.db.scalars(select(EntrenadorORM)).all()
         return [entrenador_a_domain(modelo) for modelo in modelos]
 
-    def get_by_id(self, entrenador_id: UUID) -> Optional[Entrenador]:
+    def get_by_id(self, entrenador_id: UUID) -> Entrenador | None:
         modelo = self.db.get(EntrenadorORM, str(entrenador_id))
 
         if modelo is None:
@@ -65,7 +67,9 @@ class EntrenadorRepository:
             raise
         return True
 
-    def update(self, entrenador_id: UUID, updated_entrenador: Entrenador) -> Optional[Entrenador]:
+    def update(
+        self, entrenador_id: UUID, updated_entrenador: Entrenador
+    ) -> Entrenador | None:
         modelo = self.db.get(EntrenadorORM, str(entrenador_id))
 
         if modelo is None:
