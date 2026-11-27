@@ -1,4 +1,3 @@
-from typing import List, Optional
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -40,19 +39,19 @@ class RegistroMedicoRepository:
         self.db.refresh(modelo)
         return registro_a_domain(modelo)
 
-    def obtener_por_id(self, registro_id: UUID) -> Optional[RegistroMedico]:
+    def obtener_por_id(self, registro_id: UUID) -> RegistroMedico | None:
         modelo = self.db.get(RegistroMedicoORM, str(registro_id))
         if modelo is None:
             return None
         return registro_a_domain(modelo)
 
-    def obtener_todos(self) -> List[RegistroMedico]:
+    def obtener_todos(self) -> list[RegistroMedico]:
         modelos = self.db.scalars(select(RegistroMedicoORM)).all()
         return [registro_a_domain(modelo) for modelo in modelos]
 
     def actualizar(
         self, registro_id: UUID, datos: CrearRegistroMedico
-    ) -> Optional[RegistroMedico]:
+    ) -> RegistroMedico | None:
         modelo = self.db.get(RegistroMedicoORM, str(registro_id))
         if modelo is None:
             return None
@@ -88,13 +87,17 @@ class RegistroMedicoRepository:
         return True
 
     def exists_by_pokemon_id(self, pokemon_id: UUID) -> bool:
-        consulta = select(RegistroMedicoORM.id).where(
-            RegistroMedicoORM.pokemon_id == str(pokemon_id)
-        ).limit(1)
+        consulta = (
+            select(RegistroMedicoORM.id)
+            .where(RegistroMedicoORM.pokemon_id == str(pokemon_id))
+            .limit(1)
+        )
         return self.db.scalar(consulta) is not None
 
     def exists_by_centro_id(self, centro_id: UUID) -> bool:
-        consulta = select(RegistroMedicoORM.id).where(
-            RegistroMedicoORM.centro_id == str(centro_id)
-        ).limit(1)
+        consulta = (
+            select(RegistroMedicoORM.id)
+            .where(RegistroMedicoORM.centro_id == str(centro_id))
+            .limit(1)
+        )
         return self.db.scalar(consulta) is not None

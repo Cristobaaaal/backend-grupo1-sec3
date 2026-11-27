@@ -192,3 +192,82 @@ uv run python -m unittest discover -s tests -v
 Las pruebas crean una base SQLite temporal por caso, preparan sus tablas y activan las claves foráneas. Al terminar eliminan esa base; no modifican pokemon.db. No es necesario iniciar Uvicorn ni ejecutar el seeder para estas pruebas: TestClient ejecuta la aplicación y cada caso crea sus propios datos.
 
 La colección manual está en [app/tests_manual/pruebas.http](app/tests_manual/pruebas.http) y puede abrirse con REST Client en VS Code. La preparación de la base y el seeder descritos arriba permiten reproducir las peticiones sobre datos conocidos. La evidencia y los casos de prueba finales se preparan por separado.
+
+## Autenticación y recuperación
+
+Después de actualizar el código aplica `uv run alembic upgrade head`. La migración
+`c92ef03a6d10` agrega familias de sesión, una versión de credenciales y límites
+persistentes. Conserva usuarios y datos de negocio, pero revoca los refresh
+anteriores sin familia. Los access anteriores tampoco son válidos: inicia sesión nuevamente.
+
+Configura una clave JWT local, sin subirla a Git. Puedes generar una con:
+
+~~~powershell
+uv run python -c "import secrets; print(secrets.token_urlsafe(48))"
+~~~
+
+Copia el resultado a `JWT_SECRET` en tu `.env`. Las variables actuales son:
+
+| Variable | Valor de ejemplo | Uso |
+|---|---|---|
+| JWT_ALGORITHM | HS256 | Algoritmo permitido: HS256, HS384 o HS512 |
+| ACCESS_TOKEN_EXPIRE_SECONDS | 30 | Caducidad del access token en segundos |
+| PASSWORD_RESET_EXPIRE_SECONDS | 900 | Caducidad del JWT de recuperación |
+| PASSWORD_RESET_URL | http://127.0.0.1:8000/auth/reset-password | Dirección del formulario incluido |
+| SMTP_HOST | mailpit | Host desde Docker; usar 127.0.0.1 si la API corre fuera de Docker |
+| SMTP_PORT | 1025 | Puerto SMTP de prueba |
+| SMTP_FROM | no-reply@pokemon.local | Remitente del correo |
+
+`ACCESS_TOKEN_EXPIRE_MINUTES` ya no se utiliza. Los refresh mantienen una sesión
+máxima de siete días; rotarlos no prolonga esa fecha. Reiniciar el servidor conserva
+sesiones, revocaciones y límites en la base de datos.
+
+| Método | Ruta | Resultado |
+|---|---|---|
+| POST | /auth/register | Crea ENTRENADOR; contraseña de 12 a 128 caracteres |
+| POST | /auth/login | Devuelve access y refresh; cinco fallos bloquean 15 minutos |
+| GET | /auth/me | Datos públicos del usuario; requiere Bearer |
+| POST | /auth/refresh | Consume refresh y entrega un nuevo par |
+| POST | /auth/logout | Revoca toda la sesión, access y refresh; devuelve 204 |
+| POST | /auth/forgot-password | Recibe email y devuelve siempre el mismo 202 |
+| POST | /auth/reset-password | Recibe token y password; cambia la contraseña |
+
+Reutilizar un refresh consumido revoca toda su familia, incluidos sus access y los
+refresh descendientes, sin cerrar las otras sesiones del usuario. Cambiar la contraseña
+incrementa la versión del usuario y revoca todas sus sesiones y permisos de recuperación
+anteriores en una sola transacción. El JWT de recuperación usa `type=password_reset`;
+no sirve como access token ni viceversa.
+
+Para comprobarlo en Swagger: haz login, usa el refresh una vez y vuelve a enviar el
+anterior. La segunda petición debe dar 401 y los tokens de esa familia dejan de funcionar.
+Después de logout tampoco se permite renovar. Un access válido deja de funcionar al
+cumplir los 30 segundos; solicita uno nuevo con un refresh vigente.
+
+### Correo con Mailpit
+
+Con Docker Compose:
+
+~~~bash
+docker compose up -d --build
+~~~
+
+Mailpit queda en http://127.0.0.1:8025. Si ejecutas la API con uv en el equipo, puedes
+iniciar solo `docker compose up -d mailpit` y usar `SMTP_HOST=127.0.0.1` en `.env`;
+el puerto SMTP 1025 está publicado solo en localhost.
+
+Envía `POST /auth/forgot-password` con el correo de una cuenta existente. Abre el
+mensaje en Mailpit y sigue su enlace al formulario. El token se transporta en el
+fragmento del enlace para no incluirlo en los logs HTTP. La respuesta no revela si la
+cuenta existe; si SMTP falla, se registra un error operativo sin mostrar tokens.
+
+Límites persistentes, por ventanas fijas de 15 minutos: tres solicitudes por correo,
+veinte por IP y veinte confirmaciones por IP. Las solicitudes limitadas conservan el
+202 genérico sin enviar más correos; las confirmaciones limitadas devuelven 429. No se
+confía en `X-Forwarded-For`: al desplegar detrás de un proxy, configura las IP de proxy
+confiables en Uvicorn para identificar correctamente al cliente. Las filas históricas
+de `auth_rate_limits` pueden purgarse durante mantenimiento si ya no se necesitan.
+
+Los casos de `tests/test_auth_flujos.py` usan una base temporal y un receptor SMTP local:
+no envían correos externos. Cubren rotación, reutilización, logout, recuperación,
+expiración, propósito, límites y consumo concurrente. El puerto dinámico del receptor
+se cierra al terminar.

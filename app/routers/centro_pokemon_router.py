@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, status
@@ -12,7 +12,6 @@ from app.schemas.schemas import (
 )
 from app.security.permissions import require_roles
 from app.services.centro_pokemon_service import CentroPokemonService
-
 
 router = APIRouter(
     prefix="/centros-pokemon",
@@ -48,13 +47,8 @@ Ciudad = Annotated[
     response_model=CentroPokemonResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Crear centro Pokémon",
-    description=(
-        "Registra un centro Pokémon. "
-        "Requiere rol ADMIN o VETERINARIO."
-    ),
-    dependencies=[
-        Depends(require_roles(RolUsuario.ADMIN, RolUsuario.VETERINARIO))
-    ],
+    description=("Registra un centro Pokémon. Requiere rol ADMIN o VETERINARIO."),
+    dependencies=[Depends(require_roles(RolUsuario.ADMIN, RolUsuario.VETERINARIO))],
     responses={
         403: {
             "model": ErrorResponse,
@@ -75,11 +69,10 @@ def crear_centro(
 
 @router.get(
     "/",
-    response_model=List[CentroPokemonResponse],
+    response_model=list[CentroPokemonResponse],
     summary="Listar centros Pokémon",
     description=(
-        "Devuelve todos los centros registrados. "
-        "Requiere un usuario autenticado."
+        "Devuelve todos los centros registrados. Requiere un usuario autenticado."
     ),
 )
 def obtener_centros(
@@ -90,7 +83,7 @@ def obtener_centros(
 
 @router.get(
     "/ciudad/{ciudad}",
-    response_model=List[CentroPokemonResponse],
+    response_model=list[CentroPokemonResponse],
     summary="Buscar centros por ciudad",
     description=(
         "Devuelve los centros de la ciudad indicada. "
@@ -109,10 +102,7 @@ def obtener_centros_por_ciudad(
     "/{centro_id}",
     response_model=CentroPokemonResponse,
     summary="Obtener centro Pokémon",
-    description=(
-        "Busca un centro por su ID. "
-        "Requiere un usuario autenticado."
-    ),
+    description=("Busca un centro por su ID. Requiere un usuario autenticado."),
     responses={
         404: {
             "model": ErrorResponse,
@@ -136,12 +126,9 @@ def obtener_centro_por_id(
     response_model=CentroPokemonResponse,
     summary="Actualizar centro Pokémon",
     description=(
-        "Reemplaza los datos de un centro existente. "
-        "Requiere rol ADMIN o VETERINARIO."
+        "Reemplaza los datos de un centro existente. Requiere rol ADMIN o VETERINARIO."
     ),
-    dependencies=[
-        Depends(require_roles(RolUsuario.ADMIN, RolUsuario.VETERINARIO))
-    ],
+    dependencies=[Depends(require_roles(RolUsuario.ADMIN, RolUsuario.VETERINARIO))],
     responses={
         403: {
             "model": ErrorResponse,

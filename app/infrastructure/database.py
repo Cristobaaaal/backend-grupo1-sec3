@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
@@ -19,7 +20,9 @@ engine = create_engine(  # Conexión con la db
 
 if ES_SQLITE:  # PostgreSQL ya valida las claves foráneas por defecto
 
-    @event.listens_for(engine, "connect")  # Ejecuta esto cada vez que se abra una conexión
+    @event.listens_for(
+        engine, "connect"
+    )  # Ejecuta esto cada vez que se abra una conexión
     def activar_claves_foraneas(
         dbapi_connection, connection_record
     ):  # Recibe la conexión abierta
@@ -39,9 +42,10 @@ SessionLocal = sessionmaker(  # Sesiones para consultar, guardar y confirmar ope
 class Base(DeclarativeBase):  # Base de modelos ORM (tablas)
     pass
 
+
 def get_db():
-    db = SessionLocal() # Crea la sesión
+    db = SessionLocal()  # Crea la sesión
     try:
-        yield db   # "Entregar" la sesión
+        yield db  # "Entregar" la sesión
     finally:
-        db.close() # Después de usarla se cierra
+        db.close()  # Después de usarla se cierra

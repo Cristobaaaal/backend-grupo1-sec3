@@ -1,0 +1,3 @@
+reports/
+# Directorios temporales que pytest puede dejar al fallar la creación de caché.
+pytest-cache-files-*/

@@ -9,7 +9,6 @@ from app.routers.registro_medico_router import router as registro_medico_router
 from app.routers.trainer_router import router as trainer_router
 from app.schemas.schemas import ErrorResponse
 
-
 app = FastAPI(
     title="Pokemón Medical Center API",
     description=(
@@ -21,6 +20,15 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+
+
+@app.middleware("http")
+async def evitar_cache_autenticacion(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/auth/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 errores_autenticacion = {
     401: {
@@ -59,17 +67,14 @@ app.include_router(
     "/",
     summary="Bienvenida",
     description=(
-        "Confirma que la API está activa "
-        "y devuelve un mensaje de bienvenida."
+        "Confirma que la API está activa y devuelve un mensaje de bienvenida."
     ),
     responses={
         200: {
             "content": {
                 "application/json": {
                     "example": {
-                        "message": (
-                            "Welcome to the Pokemón Medical Center API!"
-                        )
+                        "message": ("Welcome to the Pokemón Medical Center API!")
                     }
                 }
             }
@@ -77,6 +82,4 @@ app.include_router(
     },
 )
 def bienvenida():
-    return {
-        "message": "Welcome to the Pokemón Medical Center API!"
-    }
+    return {"message": "Welcome to the Pokemón Medical Center API!"}

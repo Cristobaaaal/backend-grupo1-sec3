@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from uuid import UUID
 
 import jwt
@@ -19,7 +20,6 @@ from app.services.centro_pokemon_service import CentroPokemonService
 from app.services.pokemon_service import PokemonService
 from app.services.registro_medico_service import RegistroMedicoService
 from app.services.trainer_service import EntrenadorService
-
 
 bearer_scheme = HTTPBearer(
     auto_error=False,
@@ -75,9 +75,7 @@ def get_auth_service(
 
 
 def get_current_user(
-    credenciales: HTTPAuthorizationCredentials | None = Depends(
-        bearer_scheme
-    ),
+    credenciales: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> Usuario:
     """Valida el access token y obtiene al usuario activo."""
@@ -91,16 +89,23 @@ def get_current_user(
         raise error
 
     try:
-        contenido = decodificar_access_token(
-            credenciales.credentials
-        )
+        contenido = decodificar_access_token(credenciales.credentials)
         usuario_id = UUID(contenido["sub"])
     except jwt.InvalidTokenError:
         raise error from None
 
     usuario = UsuarioRepository(db).obtener_por_id(usuario_id)
 
-    if usuario is None or not usuario.activo:
+    if (
+        usuario is None
+        or not usuario.activo
+        or usuario.token_version != contenido["ver"]
+        or not TokenRepository(db).sesion_vigente(
+            contenido["sid"],
+            usuario_id,
+            datetime.now(UTC).replace(tzinfo=None),
+        )
+    ):
         raise error
 
     return usuario

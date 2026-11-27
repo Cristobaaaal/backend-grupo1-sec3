@@ -1,11 +1,10 @@
-from typing import List, Optional
 from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.core.exceptions import ConflictError
 
+from app.core.exceptions import ConflictError
 from app.domain.models import Pokemon, TipoPokemon
 from app.infrastructure.mappers import pokemon_a_domain
 from app.infrastructure.models import PokemonORM
@@ -45,11 +44,11 @@ class PokemonRepository:
 
         return pokemon_a_domain(modelo)
 
-    def get_all(self) -> List[Pokemon]:
+    def get_all(self) -> list[Pokemon]:
         modelos = self.db.scalars(select(PokemonORM)).all()
         return [pokemon_a_domain(modelo) for modelo in modelos]
 
-    def get_by_id(self, pokemon_id: UUID) -> Optional[Pokemon]:
+    def get_by_id(self, pokemon_id: UUID) -> Pokemon | None:
         modelo = self.db.get(PokemonORM, str(pokemon_id))
 
         if modelo is None:
@@ -57,15 +56,13 @@ class PokemonRepository:
 
         return pokemon_a_domain(modelo)
 
-    def get_by_tipo(self, tipo: TipoPokemon) -> List[Pokemon]:
-        consulta = select(PokemonORM).where(
-            PokemonORM.tipo_principal == tipo.value
-        )
+    def get_by_tipo(self, tipo: TipoPokemon) -> list[Pokemon]:
+        consulta = select(PokemonORM).where(PokemonORM.tipo_principal == tipo.value)
 
         modelos = self.db.scalars(consulta).all()
         return [pokemon_a_domain(modelo) for modelo in modelos]
 
-    def get_by_entrenador_id(self, entrenador_id: UUID) -> List[Pokemon]:
+    def get_by_entrenador_id(self, entrenador_id: UUID) -> list[Pokemon]:
         consulta = select(PokemonORM).where(
             PokemonORM.entrenador_id == str(entrenador_id)
         )
@@ -73,18 +70,18 @@ class PokemonRepository:
         modelos = self.db.scalars(consulta).all()
         return [pokemon_a_domain(modelo) for modelo in modelos]
 
-    def get_sin_entrenador(self) -> List[Pokemon]:
-        consulta = select(PokemonORM).where(
-            PokemonORM.entrenador_id.is_(None)
-        )
+    def get_sin_entrenador(self) -> list[Pokemon]:
+        consulta = select(PokemonORM).where(PokemonORM.entrenador_id.is_(None))
 
         modelos = self.db.scalars(consulta).all()
         return [pokemon_a_domain(modelo) for modelo in modelos]
 
     def exists_by_entrenador_id(self, entrenador_id: UUID) -> bool:
-        consulta = select(PokemonORM.id).where(
-            PokemonORM.entrenador_id == str(entrenador_id)
-        ).limit(1)
+        consulta = (
+            select(PokemonORM.id)
+            .where(PokemonORM.entrenador_id == str(entrenador_id))
+            .limit(1)
+        )
 
         return self.db.scalar(consulta) is not None
 
@@ -112,7 +109,7 @@ class PokemonRepository:
         self,
         pokemon_id: UUID,
         datos: CrearPokemon,
-    ) -> Optional[Pokemon]:
+    ) -> Pokemon | None:
         modelo = self.db.get(PokemonORM, str(pokemon_id))
 
         if modelo is None:
@@ -123,9 +120,7 @@ class PokemonRepository:
         modelo.nivel = datos.nivel
         modelo.puntos_vida = datos.puntos_vida
         modelo.entrenador_id = (
-            str(datos.entrenador_id)
-            if datos.entrenador_id is not None
-            else None
+            str(datos.entrenador_id) if datos.entrenador_id is not None else None
         )
 
         try:
@@ -144,12 +139,12 @@ class PokemonRepository:
 
     def listar_paginado(
         self,
-        tipo: Optional[TipoPokemon] = None,
+        tipo: TipoPokemon | None = None,
         ordenar_por: str = "nombre",
         direccion: str = "asc",
         pagina: int = 1,
         limite: int = 20,
-    ) -> tuple[List[Pokemon], int]:
+    ) -> tuple[list[Pokemon], int]:
         columnas = {
             "nombre": PokemonORM.nombre,
             "nivel": PokemonORM.nivel,
@@ -177,8 +172,7 @@ class PokemonRepository:
         orden = columna.asc() if direccion == "asc" else columna.desc()
 
         consulta = (
-            consulta
-            .order_by(orden, PokemonORM.id)
+            consulta.order_by(orden, PokemonORM.id)
             .offset((pagina - 1) * limite)
             .limit(limite)
         )

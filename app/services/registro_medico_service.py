@@ -1,12 +1,13 @@
-from uuid import UUID
-from typing import List
-from app.domain.models import RegistroMedico
-from app.schemas.schemas import CrearRegistroMedico
-from app.repositories.registro_medico_repository import RegistroMedicoRepository
 from datetime import date
-from app.repositories.pokemon_repository import PokemonRepository
+from uuid import UUID
+
+from app.core.exceptions import BusinessRuleError, NotFoundException
+from app.domain.models import RegistroMedico
 from app.repositories.centro_pokemon_repository import CentroPokemonRepository
-from app.core.exceptions import NotFoundException, BusinessRuleError
+from app.repositories.pokemon_repository import PokemonRepository
+from app.repositories.registro_medico_repository import RegistroMedicoRepository
+from app.schemas.schemas import CrearRegistroMedico
+
 
 class RegistroMedicoService:
     def __init__(
@@ -30,22 +31,26 @@ class RegistroMedicoService:
                 f"el centro {datos.centro_id} no esta en servicio, no puede recibir pacientes."
             )
         if datos.fecha_ingreso > date.today():
-            raise BusinessRuleError("la fecha de ingreso no puede ser una fecha futura.")
-        
+            raise BusinessRuleError(
+                "la fecha de ingreso no puede ser una fecha futura."
+            )
+
     def crear_registro(self, datos: CrearRegistroMedico) -> RegistroMedico:
         self._validar_datos(datos)
         return self.repository.guardar(datos)
-    
+
     def obtener_por_id(self, registro_id: UUID) -> RegistroMedico:
         registro = self.repository.obtener_por_id(registro_id)
         if not registro:
             raise NotFoundException("registro médico", registro_id)
         return registro
 
-    def listar_registros(self) -> List[RegistroMedico]:
+    def listar_registros(self) -> list[RegistroMedico]:
         return self.repository.obtener_todos()
-    
-    def actualizar_registro(self, registro_id: UUID, datos: CrearRegistroMedico) -> RegistroMedico:
+
+    def actualizar_registro(
+        self, registro_id: UUID, datos: CrearRegistroMedico
+    ) -> RegistroMedico:
         self.obtener_por_id(registro_id)
         self._validar_datos(datos)
         registro_actualizado = self.repository.actualizar(registro_id, datos)

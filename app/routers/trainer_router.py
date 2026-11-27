@@ -1,4 +1,4 @@
-from typing import Annotated, List
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Path, status
@@ -7,9 +7,14 @@ from app.core.dependencies import get_trainer_service
 from app.schemas.schemas import CrearEntrenador, EntrenadorResponse, ErrorResponse
 from app.services.trainer_service import EntrenadorService
 
-
 router = APIRouter(prefix="/entrenadores", tags=["Entrenadores"])
-EntrenadorId = Annotated[UUID, Path(description="ID del entrenador", examples=["10000000-0000-4000-8000-000000000001"])]
+EntrenadorId = Annotated[
+    UUID,
+    Path(
+        description="ID del entrenador",
+        examples=["10000000-0000-4000-8000-000000000001"],
+    ),
+]
 
 
 @router.post(
@@ -31,7 +36,7 @@ def crear_entrenador(
 
 @router.get(
     "/",
-    response_model=List[EntrenadorResponse],
+    response_model=list[EntrenadorResponse],
     status_code=status.HTTP_200_OK,
     summary="Listar entrenadores",
     description="Devuelve todos los entrenadores registrados.",
@@ -86,7 +91,10 @@ def actualizar_entrenador(
     description="Elimina un entrenador si no tiene Pokémon asignados.",
     responses={
         404: {"model": ErrorResponse, "description": "Entrenador no encontrado"},
-        409: {"model": ErrorResponse, "description": "El entrenador tiene Pokémon asignados"},
+        409: {
+            "model": ErrorResponse,
+            "description": "El entrenador tiene Pokémon asignados",
+        },
         422: {"model": ErrorResponse, "description": "ID inválido"},
     },
 )
